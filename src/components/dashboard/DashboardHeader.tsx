@@ -1,11 +1,12 @@
 import Link from "next/link";
 import { createClient } from "@/utils/supabase/server";
-import { LogoutButton } from "./LogoutButton";
+import { UserMenu } from "./UserMenu";
 
 export async function DashboardHeader() {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   const displayName = user?.user_metadata?.display_name ?? user?.email ?? "";
+  const email = user?.email ?? "";
 
   return (
     <header className="fixed top-0 left-0 right-0 z-50 bg-white border-b border-gray-100">
@@ -39,17 +40,7 @@ export async function DashboardHeader() {
         </nav>
 
         {/* User */}
-        <div className="flex items-center gap-4">
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 bg-indigo-100 rounded-full flex items-center justify-center">
-              <span className="text-xs font-semibold text-indigo-600">
-                {displayName.charAt(0).toUpperCase()}
-              </span>
-            </div>
-            <span className="hidden md:block text-sm text-gray-700">{displayName}</span>
-          </div>
-          <LogoutButton />
-        </div>
+        <UserMenu displayName={displayName} email={email} />
       </div>
     </header>
   );
