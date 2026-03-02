@@ -1,18 +1,6 @@
 import Link from "next/link";
 import { createClient } from "@/utils/supabase/server";
-
-async function LogoutButton() {
-  return (
-    <form action="/auth/logout" method="POST">
-      <button
-        type="submit"
-        className="text-sm text-gray-500 hover:text-gray-900 transition-colors"
-      >
-        ログアウト
-      </button>
-    </form>
-  );
-}
+import { LogoutButton } from "./LogoutButton";
 
 export async function DashboardHeader() {
   const supabase = await createClient();
