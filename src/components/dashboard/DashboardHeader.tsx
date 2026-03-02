@@ -28,8 +28,11 @@ export async function DashboardHeader() {
 
         {/* Nav */}
         <nav className="hidden md:flex items-center gap-6">
-          <Link href="/dashboard" className="text-sm font-medium text-indigo-600">
+          <Link href="/dashboard" className="text-sm text-gray-500 hover:text-gray-900 transition-colors">
             ダッシュボード
+          </Link>
+          <Link href="/dashboard/workspaces" className="text-sm text-gray-500 hover:text-gray-900 transition-colors">
+            ワークスペース
           </Link>
           <Link href="/dashboard/tasks" className="text-sm text-gray-500 hover:text-gray-900 transition-colors">
             タスク
