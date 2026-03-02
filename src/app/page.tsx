@@ -1,15 +1,27 @@
-import { createClient } from "@/utils/supabase/server"
+import {
+  LpHeader,
+  LpHero,
+  LpProblem,
+  LpFeatures,
+  LpHowItWorks,
+  LpRoles,
+  LpPricing,
+  LpCta,
+  LpFooter,
+} from "@/components/lp";
 
-export default async function Page() {
-  const supabase = await createClient()
-
-  const { data: tasks } = await supabase.from('tasks').select()
-
+export default function LandingPage() {
   return (
-    <ul>
-      {tasks?.map((task, index) => (
-        <li key={index}>{task.title}</li>
-      ))}
-    </ul>
-  )
+    <div className="min-h-screen bg-white text-gray-900">
+      <LpHeader />
+      <LpHero />
+      <LpProblem />
+      <LpFeatures />
+      <LpHowItWorks />
+      <LpRoles />
+      <LpPricing />
+      <LpCta />
+      <LpFooter />
+    </div>
+  );
 }
