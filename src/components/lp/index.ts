@@ -1,0 +1,9 @@
+export { LpHeader } from "./LpHeader";
+export { LpHero } from "./LpHero";
+export { LpProblem } from "./LpProblem";
+export { LpFeatures } from "./LpFeatures";
+export { LpHowItWorks } from "./LpHowItWorks";
+export { LpRoles } from "./LpRoles";
+export { LpPricing } from "./LpPricing";
+export { LpCta } from "./LpCta";
+export { LpFooter } from "./LpFooter";
