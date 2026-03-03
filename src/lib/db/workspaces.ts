@@ -2,6 +2,7 @@ import { SupabaseClient } from "@supabase/supabase-js";
 import {
   Workspace,
   WorkspaceMember,
+  WorkspaceMemberWithUser,
   CreateWorkspaceInput,
   UpdateWorkspaceInput,
 } from "@/types/workspace";
@@ -38,6 +39,52 @@ export async function getWorkspaceRolesByUserId(
       };
     })
     .filter((r): r is WorkspaceRole => r !== null);
+}
+
+/**
+ * ワークスペースのメンバー一覧を取得する。
+ * auth.users との JOIN は RPC 関数 (get_workspace_members) で行う。
+ * 所属チェックも RPC 関数側で実施。
+ */
+export async function getWorkspaceMembers(
+  supabase: SupabaseClient,
+  workspaceId: string
+): Promise<WorkspaceMemberWithUser[]> {
+  const { data, error } = await supabase.rpc("get_workspace_members", {
+    p_workspace_id: workspaceId,
+  });
+
+  if (error || !data) {
+    console.error("[getWorkspaceMembers] error:", error);
+    return [];
+  }
+  return data as WorkspaceMemberWithUser[];
+}
+
+/**
+ * メンバーのロールを変更する。
+ * 権限チェックは RPC 関数 (update_member_role) 側で実施:
+ *   - 呼び出し元が owner / manager であること
+ *   - 自分自身のロールは変更不可
+ *   - manager は owner への昇格・owner の降格は不可
+ */
+export async function updateMemberRole(
+  supabase: SupabaseClient,
+  workspaceId: string,
+  targetUserId: string,
+  newRole: WorkspaceMember["role"]
+): Promise<{ success: boolean; error?: string }> {
+  const { error } = await supabase.rpc("update_member_role", {
+    p_workspace_id: workspaceId,
+    p_target_user_id: targetUserId,
+    p_new_role: newRole,
+  });
+
+  if (error) {
+    console.error("[updateMemberRole] error:", error);
+    return { success: false, error: error.message };
+  }
+  return { success: true };
 }
 
 /** 自分が所属するワークスペース一覧を取得 */

@@ -123,3 +123,120 @@ create trigger workspaces_set_updated_at
   before update on public.workspaces
   for each row
   execute function public.set_updated_at();
+
+-- =============================================
+-- ワークスペースメンバー一覧取得 RPC
+-- auth.users と JOIN するため security definer で実行
+-- =============================================
+
+create or replace function public.get_workspace_members(p_workspace_id uuid)
+returns table (
+  id uuid,
+  workspace_id uuid,
+  user_id uuid,
+  role text,
+  created_at timestamptz,
+  display_name text,
+  email text
+)
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if not exists (
+    select 1 from public.workspace_members wm
+    where wm.workspace_id = p_workspace_id
+      and wm.user_id = auth.uid()
+  ) then
+    raise exception 'Not a member of this workspace'
+      using errcode = '42501';
+  end if;
+
+  return query
+    select
+      wm.id,
+      wm.workspace_id,
+      wm.user_id,
+      wm.role::text,
+      wm.created_at,
+      coalesce(u.raw_user_meta_data->>'display_name', split_part(u.email::text, '@', 1))::text as display_name,
+      u.email::text
+    from public.workspace_members wm
+    join auth.users u on u.id = wm.user_id
+    where wm.workspace_id = p_workspace_id
+    order by
+      case wm.role
+        when 'owner' then 1
+        when 'manager' then 2
+        else 3
+      end,
+      wm.created_at asc;
+end;
+$$;
+
+-- =============================================
+-- メンバーロール変更 RPC
+-- owner / manager のみ実行可能
+-- =============================================
+
+create or replace function public.update_member_role(
+  p_workspace_id uuid,
+  p_target_user_id uuid,
+  p_new_role workspace_role
+)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_caller_role workspace_role;
+begin
+  select wm.role into v_caller_role
+  from public.workspace_members wm
+  where wm.workspace_id = p_workspace_id
+    and wm.user_id = auth.uid();
+
+  if v_caller_role is null then
+    raise exception 'Not a member of this workspace'
+      using errcode = '42501';
+  end if;
+
+  if v_caller_role not in ('owner', 'manager') then
+    raise exception 'Only owner or manager can change roles'
+      using errcode = '42501';
+  end if;
+
+  if p_target_user_id = auth.uid() then
+    raise exception 'Cannot change your own role'
+      using errcode = '42501';
+  end if;
+
+  if v_caller_role = 'manager' then
+    if p_new_role = 'owner' then
+      raise exception 'Manager cannot promote to owner'
+        using errcode = '42501';
+    end if;
+    if exists (
+      select 1 from public.workspace_members wm
+      where wm.workspace_id = p_workspace_id
+        and wm.user_id = p_target_user_id
+        and wm.role = 'owner'
+    ) then
+      raise exception 'Manager cannot change owner role'
+        using errcode = '42501';
+    end if;
+  end if;
+
+  update public.workspace_members
+  set role = p_new_role
+  where workspace_id = p_workspace_id
+    and user_id = p_target_user_id;
+
+  if not found then
+    raise exception 'Target user is not a member of this workspace'
+      using errcode = 'P0002';
+  end if;
+end;
+$$;

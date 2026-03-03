@@ -23,12 +23,20 @@ export function WorkspaceCard({ workspace }: Props) {
           </div>
         </div>
 
-        <Link
-          href={`/dashboard/workspaces/${workspace.id}/edit`}
-          className="flex-shrink-0 text-xs text-gray-400 hover:text-indigo-600 border border-gray-200 hover:border-indigo-300 px-3 py-1.5 rounded-lg transition-colors"
-        >
-          編集
-        </Link>
+        <div className="flex items-center gap-2 flex-shrink-0">
+          <Link
+            href={`/dashboard/workspaces/${workspace.id}/members`}
+            className="text-xs text-gray-400 hover:text-indigo-600 border border-gray-200 hover:border-indigo-300 px-3 py-1.5 rounded-lg transition-colors"
+          >
+            メンバー
+          </Link>
+          <Link
+            href={`/dashboard/workspaces/${workspace.id}/edit`}
+            className="text-xs text-gray-400 hover:text-indigo-600 border border-gray-200 hover:border-indigo-300 px-3 py-1.5 rounded-lg transition-colors"
+          >
+            編集
+          </Link>
+        </div>
       </div>
 
       <p className="text-xs text-gray-400 mt-4">
