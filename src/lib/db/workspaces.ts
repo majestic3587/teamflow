@@ -56,14 +56,31 @@ export async function createWorkspace(
   userId: string,
   input: CreateWorkspaceInput
 ): Promise<Workspace | null> {
-  const { data: workspace, error } = await supabase
+  // INSERT と SELECT を分離する。
+  // .insert().select() だと RETURNING 句が使われ、workspaces の SELECT ポリシー
+  // (workspace_members の存在チェック) が AFTER INSERT トリガーとの
+  // タイミング問題で失敗するため。
+  const { error: insertError } = await supabase
     .from("workspaces")
-    .insert({ name: input.name, description: input.description ?? null, owner_id: userId })
+    .insert({ name: input.name, description: input.description ?? null, owner_id: userId });
+
+  if (insertError) {
+    console.error("[createWorkspace] insert error:", insertError);
+    return null;
+  }
+
+  // トリガーが workspace_members に owner 行を作成済みなので SELECT は通る
+  const { data: workspace, error: selectError } = await supabase
+    .from("workspaces")
     .select(WORKSPACE_FIELDS)
+    .eq("owner_id", userId)
+    .eq("name", input.name)
+    .order("created_at", { ascending: false })
+    .limit(1)
     .single();
 
-  if (error || !workspace) {
-    console.error("[createWorkspace] error:", error);
+  if (selectError || !workspace) {
+    console.error("[createWorkspace] select error:", selectError);
     return null;
   }
   return workspace as Workspace;
