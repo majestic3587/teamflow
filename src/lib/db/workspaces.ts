@@ -2,6 +2,7 @@ import { SupabaseClient } from "@supabase/supabase-js";
 import {
   Workspace,
   WorkspaceMember,
+  WorkspaceMemberWithUser,
   CreateWorkspaceInput,
   UpdateWorkspaceInput,
 } from "@/types/workspace";
@@ -38,6 +39,26 @@ export async function getWorkspaceRolesByUserId(
       };
     })
     .filter((r): r is WorkspaceRole => r !== null);
+}
+
+/**
+ * ワークスペースのメンバー一覧を取得する。
+ * auth.users との JOIN は RPC 関数 (get_workspace_members) で行う。
+ * 所属チェックも RPC 関数側で実施。
+ */
+export async function getWorkspaceMembers(
+  supabase: SupabaseClient,
+  workspaceId: string
+): Promise<WorkspaceMemberWithUser[]> {
+  const { data, error } = await supabase.rpc("get_workspace_members", {
+    p_workspace_id: workspaceId,
+  });
+
+  if (error || !data) {
+    console.error("[getWorkspaceMembers] error:", error);
+    return [];
+  }
+  return data as WorkspaceMemberWithUser[];
 }
 
 /** 自分が所属するワークスペース一覧を取得 */

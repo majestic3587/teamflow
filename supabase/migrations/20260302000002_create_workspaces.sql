@@ -123,3 +123,54 @@ create trigger workspaces_set_updated_at
   before update on public.workspaces
   for each row
   execute function public.set_updated_at();
+
+-- =============================================
+-- ワークスペースメンバー一覧取得 RPC
+-- auth.users と JOIN するため security definer で実行
+-- =============================================
+
+create or replace function public.get_workspace_members(p_workspace_id uuid)
+returns table (
+  id uuid,
+  workspace_id uuid,
+  user_id uuid,
+  role text,
+  created_at timestamptz,
+  display_name text,
+  email text
+)
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if not exists (
+    select 1 from public.workspace_members wm
+    where wm.workspace_id = p_workspace_id
+      and wm.user_id = auth.uid()
+  ) then
+    raise exception 'Not a member of this workspace'
+      using errcode = '42501';
+  end if;
+
+  return query
+    select
+      wm.id,
+      wm.workspace_id,
+      wm.user_id,
+      wm.role::text,
+      wm.created_at,
+      coalesce(u.raw_user_meta_data->>'display_name', split_part(u.email::text, '@', 1))::text as display_name,
+      u.email::text
+    from public.workspace_members wm
+    join auth.users u on u.id = wm.user_id
+    where wm.workspace_id = p_workspace_id
+    order by
+      case wm.role
+        when 'owner' then 1
+        when 'manager' then 2
+        else 3
+      end,
+      wm.created_at asc;
+end;
+$$;
