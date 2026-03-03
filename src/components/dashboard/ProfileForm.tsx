@@ -3,24 +3,26 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import type { Profile } from "@/types/profile";
+import type { WorkspaceRole } from "@/lib/db/workspaces";
 
 type Props = {
   profile: Profile;
+  workspaceRoles: WorkspaceRole[];
 };
 
-const ROLE_LABEL: Record<Profile["role"], string> = {
+const ROLE_LABEL: Record<string, string> = {
   owner:   "Owner",
   manager: "Manager",
   member:  "Member",
 };
 
-const ROLE_BADGE: Record<Profile["role"], string> = {
+const ROLE_BADGE: Record<string, string> = {
   owner:   "bg-yellow-100 text-yellow-700",
   manager: "bg-indigo-100 text-indigo-700",
   member:  "bg-gray-100 text-gray-600",
 };
 
-export function ProfileForm({ profile }: Props) {
+export function ProfileForm({ profile, workspaceRoles }: Props) {
   const router = useRouter();
   const [displayName, setDisplayName] = useState(profile.display_name);
   const [status, setStatus] = useState<"idle" | "saving" | "success" | "error">("idle");
@@ -65,9 +67,18 @@ export function ProfileForm({ profile }: Props) {
         </div>
         <div>
           <p className="text-sm font-medium text-gray-900">{profile.display_name}</p>
-          <span className={`inline-block text-xs font-medium px-2.5 py-0.5 rounded-full mt-1 ${ROLE_BADGE[profile.role]}`}>
-            {ROLE_LABEL[profile.role]}
-          </span>
+          {workspaceRoles.length > 0 && (
+            <div className="flex flex-wrap gap-1.5 mt-1">
+              {workspaceRoles.map((wr) => (
+                <span
+                  key={wr.workspace_id}
+                  className={`inline-block text-xs font-medium px-2.5 py-0.5 rounded-full ${ROLE_BADGE[wr.role] ?? ROLE_BADGE.member}`}
+                >
+                  {wr.workspace_name}
+                </span>
+              ))}
+            </div>
+          )}
         </div>
       </div>
 
@@ -90,15 +101,31 @@ export function ProfileForm({ profile }: Props) {
         <p className="text-xs text-gray-400 mt-1.5">{displayName.length} / 50</p>
       </div>
 
-      {/* ロール（読み取り専用） */}
+      {/* ワークスペースロール（読み取り専用） */}
       <div>
         <label className="block text-sm font-medium text-gray-700 mb-1.5">
-          ロール
+          所属ワークスペース
         </label>
-        <div className="px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-sm text-gray-500">
-          {ROLE_LABEL[profile.role]}
-          <span className="text-xs text-gray-400 ml-2">（変更は管理者が行います）</span>
-        </div>
+        {workspaceRoles.length === 0 ? (
+          <div className="px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-sm text-gray-400">
+            所属しているワークスペースはありません
+          </div>
+        ) : (
+          <div className="space-y-2">
+            {workspaceRoles.map((wr) => (
+              <div
+                key={wr.workspace_id}
+                className="flex items-center justify-between px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl"
+              >
+                <span className="text-sm text-gray-700">{wr.workspace_name}</span>
+                <span className={`text-xs font-medium px-2.5 py-0.5 rounded-full ${ROLE_BADGE[wr.role] ?? ROLE_BADGE.member}`}>
+                  {ROLE_LABEL[wr.role] ?? wr.role}
+                </span>
+              </div>
+            ))}
+            <p className="text-xs text-gray-400 mt-1">ロールの変更はワークスペースの管理者が行います</p>
+          </div>
+        )}
       </div>
 
       {/* 登録日 */}

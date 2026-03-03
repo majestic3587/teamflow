@@ -12,7 +12,6 @@ export function profileFromUser(user: User): Profile {
       user.user_metadata?.display_name ??
       user.email?.split("@")[0] ??
       "",
-    role: (user.user_metadata?.role as Profile["role"]) ?? "member",
     created_at: user.created_at,
     updated_at: user.updated_at ?? user.created_at,
   };
@@ -28,7 +27,7 @@ export async function getProfileById(
 ): Promise<Profile | null> {
   const { data, error } = await supabase
     .from("profiles")
-    .select("id, display_name, role, created_at, updated_at")
+    .select("id, display_name, created_at, updated_at")
     .eq("id", userId)
     .single();
 
@@ -50,7 +49,7 @@ export async function updateProfile(
     .from("profiles")
     .update(input)
     .eq("id", userId)
-    .select("id, display_name, role, created_at, updated_at")
+    .select("id, display_name, created_at, updated_at")
     .single();
 
   if (error || !data) return null;
