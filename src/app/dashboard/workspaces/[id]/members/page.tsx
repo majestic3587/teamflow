@@ -26,6 +26,10 @@ export default async function WorkspaceMembersPage({ params }: Props) {
 
   if (!workspace) notFound();
 
+  const currentMember = members.find((m) => m.user_id === user.id);
+  const callerRole = currentMember?.role ?? "member";
+  const canChangeRole = callerRole === "owner" || callerRole === "manager";
+
   const roleCount = {
     owner: members.filter((m) => m.role === "owner").length,
     manager: members.filter((m) => m.role === "manager").length,
@@ -85,7 +89,10 @@ export default async function WorkspaceMembersPage({ params }: Props) {
               <MemberCard
                 key={member.id}
                 member={member}
+                workspaceId={id}
                 isCurrentUser={member.user_id === user.id}
+                canChangeRole={canChangeRole}
+                callerRole={callerRole}
               />
             ))}
           </div>

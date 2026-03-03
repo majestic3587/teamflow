@@ -61,6 +61,32 @@ export async function getWorkspaceMembers(
   return data as WorkspaceMemberWithUser[];
 }
 
+/**
+ * メンバーのロールを変更する。
+ * 権限チェックは RPC 関数 (update_member_role) 側で実施:
+ *   - 呼び出し元が owner / manager であること
+ *   - 自分自身のロールは変更不可
+ *   - manager は owner への昇格・owner の降格は不可
+ */
+export async function updateMemberRole(
+  supabase: SupabaseClient,
+  workspaceId: string,
+  targetUserId: string,
+  newRole: WorkspaceMember["role"]
+): Promise<{ success: boolean; error?: string }> {
+  const { error } = await supabase.rpc("update_member_role", {
+    p_workspace_id: workspaceId,
+    p_target_user_id: targetUserId,
+    p_new_role: newRole,
+  });
+
+  if (error) {
+    console.error("[updateMemberRole] error:", error);
+    return { success: false, error: error.message };
+  }
+  return { success: true };
+}
+
 /** 自分が所属するワークスペース一覧を取得 */
 export async function getWorkspacesByUserId(
   supabase: SupabaseClient,
