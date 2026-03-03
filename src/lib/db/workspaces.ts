@@ -1,11 +1,44 @@
 import { SupabaseClient } from "@supabase/supabase-js";
 import {
   Workspace,
+  WorkspaceMember,
   CreateWorkspaceInput,
   UpdateWorkspaceInput,
 } from "@/types/workspace";
 
 const WORKSPACE_FIELDS = "id, name, description, owner_id, created_at, updated_at";
+
+export type WorkspaceRole = {
+  workspace_id: string;
+  workspace_name: string;
+  role: WorkspaceMember["role"];
+};
+
+/** ユーザーが所属する全ワークスペースでのロール一覧を取得 */
+export async function getWorkspaceRolesByUserId(
+  supabase: SupabaseClient,
+  userId: string
+): Promise<WorkspaceRole[]> {
+  const { data, error } = await supabase
+    .from("workspace_members")
+    .select("role, workspace:workspaces(id, name)")
+    .eq("user_id", userId)
+    .order("created_at", { ascending: false });
+
+  if (error || !data) return [];
+
+  return data
+    .map((row) => {
+      const ws = Array.isArray(row.workspace) ? row.workspace[0] : row.workspace;
+      if (!ws) return null;
+      return {
+        workspace_id: ws.id as string,
+        workspace_name: ws.name as string,
+        role: row.role as WorkspaceMember["role"],
+      };
+    })
+    .filter((r): r is WorkspaceRole => r !== null);
+}
 
 /** 自分が所属するワークスペース一覧を取得 */
 export async function getWorkspacesByUserId(

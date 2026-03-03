@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/utils/supabase/server";
 import { getProfileById, profileFromUser } from "@/lib/db/profiles";
+import { getWorkspaceRolesByUserId } from "@/lib/db/workspaces";
 import { DashboardHeader } from "@/components/dashboard/DashboardHeader";
 import { ProfileForm } from "@/components/dashboard/ProfileForm";
 
@@ -15,8 +16,10 @@ export default async function SettingsPage() {
 
   if (!user) redirect("/login");
 
-  const profile =
-    (await getProfileById(supabase, user.id)) ?? profileFromUser(user);
+  const [profile, workspaceRoles] = await Promise.all([
+    getProfileById(supabase, user.id).then((p) => p ?? profileFromUser(user)),
+    getWorkspaceRolesByUserId(supabase, user.id),
+  ]);
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -37,7 +40,7 @@ export default async function SettingsPage() {
         {/* カード */}
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm px-8 py-8">
           <h1 className="text-xl font-bold text-gray-900 mb-6">プロフィール設定</h1>
-          <ProfileForm profile={profile} />
+          <ProfileForm profile={profile} workspaceRoles={workspaceRoles} />
         </div>
       </main>
     </div>
