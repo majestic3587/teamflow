@@ -109,14 +109,22 @@ export default async function TaskDetailPage({ params }: Props) {
                 {APPROVAL_STATUS_LABELS[task.approval_status]}
               </span>
             </div>
-            {canEdit && (
+            <div className="flex items-center gap-2 flex-shrink-0">
               <Link
-                href={`/dashboard/tasks/${taskId}/edit`}
-                className="flex-shrink-0 text-xs text-gray-400 hover:text-indigo-600 border border-gray-200 hover:border-indigo-300 px-3 py-1.5 rounded-lg transition-colors"
+                href={`/dashboard/tasks/${taskId}/comments`}
+                className="text-xs text-indigo-600 hover:text-indigo-700 border border-indigo-200 hover:border-indigo-400 bg-indigo-50 hover:bg-indigo-100 px-3 py-1.5 rounded-lg transition-colors font-medium"
               >
-                編集
+                コメント
               </Link>
-            )}
+              {canEdit && (
+                <Link
+                  href={`/dashboard/tasks/${taskId}/edit`}
+                  className="text-xs text-gray-400 hover:text-indigo-600 border border-gray-200 hover:border-indigo-300 px-3 py-1.5 rounded-lg transition-colors"
+                >
+                  編集
+                </Link>
+              )}
+            </div>
           </div>
 
           <h1 className="text-xl font-bold text-gray-900 mb-8">{task.title}</h1>
