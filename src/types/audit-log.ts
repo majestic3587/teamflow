@@ -10,6 +10,11 @@ export type EventType =
   | "DELETED"
   | "DUE_DATE_CHANGED";
 
+export type AuditLogMetadata = {
+  entity_name?: string;
+  [key: string]: unknown;
+};
+
 export type AuditLog = {
   id: string;
   workspace_id: string;
@@ -17,6 +22,7 @@ export type AuditLog = {
   entity_id: string;
   event_type: EventType;
   actor_id: string | null;
+  metadata: AuditLogMetadata | null;
   created_at: string;
 };
 

@@ -160,14 +160,17 @@ export default async function AuditLogsPage({ params }: Props) {
                             {ENTITY_LABELS[log.entity_type]}
                           </span>
                         </div>
+                        {/* エンティティ名 */}
+                        {log.metadata?.entity_name && (
+                          <p className="text-sm text-gray-700 mt-0.5 truncate">
+                            「{log.metadata.entity_name}」
+                          </p>
+                        )}
                         <p className="text-xs text-gray-400 mt-0.5">
                           {new Date(log.created_at).toLocaleTimeString("ja-JP", {
                             hour: "2-digit",
                             minute: "2-digit",
                           })}
-                          <span className="ml-2 font-mono text-gray-300 select-all">
-                            {log.entity_id.slice(0, 8)}…
-                          </span>
                         </p>
                       </div>
                     </div>
