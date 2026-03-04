@@ -48,6 +48,12 @@ export function WorkspaceCard({ workspace }: Props) {
           メンバー
         </Link>
         <Link
+          href={`${basePath}/audit-logs`}
+          className="text-xs text-gray-500 hover:text-indigo-600 bg-gray-50 hover:bg-indigo-50 px-3 py-1.5 rounded-lg transition-colors"
+        >
+          監査ログ
+        </Link>
+        <Link
           href={`${basePath}/edit`}
           className="ml-auto text-xs text-gray-400 hover:text-indigo-600 transition-colors"
         >
