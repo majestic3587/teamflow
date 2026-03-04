@@ -1,41 +1,454 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# プロダクト名：TeamFlow
 
-## Getting Started
+「上長承認がないと着手できない」×「期限変更は履歴で残る」BtoBチームタスク管理SaaS MVP
 
-First, run the development server:
+# 1.プロジェクト概要・目的
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+## 1.1 背景
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+チームでプロジェクトを進行する際、以下の問題が頻繁に発生する
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+- タスクの責任者が曖昧になる
+- 上長承認前に作業が進み手戻りが発生する
+- 期限変更の経緯が管理されない
+- 業務ルールが運用依存になり再現性がない
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+特にBtoB組織では「ルールは存在するが守られない」ことが生産性低下の原因となる
 
-## Learn More
+## 1.2 解決する課題
 
-To learn more about Next.js, take a look at the following resources:
+TeamFlowは以下を解決する。
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+- タスク責任者の明確化
+- 承認前作業の禁止
+- 期限変更履歴の完全追跡
+- 業務ルールのシステム強制
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## 1.3 対象ユーザー
 
-## Deploy on Vercel
+- 5〜30人規模チーム
+- 新規事業 / 開発 / 制作 / 営業PJ
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+### Role（RBAC）
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- Owner
+- Manager
+- Member
+
+# 2. 業務ルール（ドメインルール）
+
+## 2.1 担当者
+
+- タスク担当者は **必ず1名**
+- 複数担当は禁止
 
 ---
+
+## 2.2 タスク作成ルール
+
+必須項目：
+
+- 担当者
+- 完了期限
+- Definition of Done
+
+未入力の場合作成不可。
+
+---
+
+## 2.3 承認ルール（最重要）
+
+- 承認されるまで作業開始不可
+- 承認権限：Manager以上
+- **APIレベルで強制**
+
+---
+
+## 2.4 期限変更ルール
+
+- Memberは直接変更不可
+- コメントによる変更申請のみ可能
+- Manager以上のみ変更可能
+- **変更履歴を必ず保存**
+
+---
+
+## 2.5 状態変更ルール
+
+approval_status ≠ Approved の場合：
+
+- InProgress ❌
+- Done ❌
+
+# 3.実装機能一覧
+
+## 3.1 認証・ユーザー
+
+### 機能
+
+- Supabase Authによるログイン/ログアウト/新規登録
+- プロフィール(最低限：表示名)
+
+### 管理項目
+
+- display_name
+
+## 3.2 Workspace(組織)
+
+- Workspace作成
+- Workspace管理者設定
+- ユーザーRole管理
+
+## 3.3 権限管理(RBAC)
+
+### Role設定
+
+- Owner
+- Manager
+- Member
+
+### 権限制御
+
+| 操作 | **Owner** | **Manager** | **Member** |
+| --- | --- | --- | --- |
+| **Task作成** | ✅️ | ✅️ | ✅️ |
+| **承認** | ✅️ | ✅️ | ❌️ |
+| **期限変更** | ✅️ | ✅️ | ❌️ |
+
+## 3.3 Project管理
+
+- Project作成
+- Project一覧表示
+- Project編集
+- Project削除
+
+## 3.4 Task管理
+
+- タイトル(title)
+- 担当者(assignee)
+- 期日(due_date)
+- 完了定義(definition_of_done)
+- 承認ステータス(approval_status)
+- 進捗ステータス(work_status)
+
+### 進捗ステータス
+
+- NotStarted
+- InProgress
+- Done
+
+### 承認ステータス
+
+- Draft
+- PendingApproval
+- Approved
+- Rejected
+
+承認済みのみ進捗更新可
+
+## 3.5 承認フロー
+
+### フロー
+
+Task作成→承認申請→Manager承認→作業開始可能
+
+### 機能
+
+- 承認申請
+- 承認
+- 差し戻し(理由必須)
+
+## 3.6 コメント機能
+
+### 機能
+
+- コメント投稿
+- コメント閲覧
+
+### 期限変更テンプレート
+
+【期限変更申請】
+
+旧期限：
+
+新期限：
+
+理由：
+
+## 3.7 監査ログ
+
+- 主要イベントを記録し、追跡可能にする
+    - TASK_CREATED
+    - APPROVED
+    - REJECTED
+    - STATUS_CHANGED
+    - DUE_DATE_CHANGED
+
+# 4.データベース設計
+
+## 4.1 テーブル構成
+
+- DB： Supabase(PostgreSQL)
+- Workspace単位でデータ分離
+- Supabase RLSによる認可制御
+
+## 4.2テーブル構成(MVP)
+
+## 4.2 テーブル構成 (MVP)
+
+### workspaces
+
+- id (uuid, PK)
+- name (text, not null)
+- owner_id (uuid, not null, FK → auth.users(id))
+- created_at (timestamptz)
+- description (text)
+- updated_at (timestamptz)
+
+---
+
+### profiles
+
+- id (uuid, PK, FK → auth.users(id))
+- display_name (text)
+- created_at (timestamptz)
+- updated_at (timestamptz)
+
+---
+
+### workspace_members
+
+- id (uuid, PK)
+- workspace_id (uuid, FK → [workspaces.id](http://workspaces.id/))
+- user_id (uuid, FK → auth.users(id))
+- role (enum, not null)
+    - OWNER
+    - MANAGER
+    - MEMBER
+- created_at (timestamptz)
+
+---
+
+### projects
+
+- id (uuid, PK)
+- workspace_id (uuid, FK → [workspaces.id](http://workspaces.id/))
+- name (text)
+- created_at (timestamptz)
+- description (text)
+- created_by (uuid, FK → auth.users(id))
+- updated_at (timestamptz)
+
+---
+
+### tasks
+
+- id (uuid, PK)
+- workspace_id (uuid, FK → [workspaces.id](http://workspaces.id/))
+- project_id (uuid, FK → [projects.id](http://projects.id/))
+- assignee_id (uuid, FK → auth.users(id))
+- created_by (uuid, FK → auth.users(id))
+- title (text)
+- due_date (timestamptz)
+- definition_of_done (text)
+- approval_status (enum)
+    - DRAFT
+    - PENDING
+    - APPROVED
+    - REJECTED
+- work_status (enum)
+    - NOT_STARTED
+    - IN_PROGRESS
+    - DONE
+- created_at (timestamptz, not null, default now())
+
+---
+
+### task_comments
+
+- id (uuid, PK)
+- task_id (uuid, FK → [tasks.id](http://tasks.id/))
+- user_id (uuid, FK → auth.users(id))
+- body (text)
+- created_at (timestamptz)
+
+---
+
+### audit_logs
+
+- id (uuid, PK)
+- workspace_id (uuid, FK → [workspaces.id](http://workspaces.id/))
+- entity_type (enum)
+    - task
+    - project
+    - workspace
+    - comment
+- entity_id (uuid)
+- event_type (enum)
+    - CREATED
+    - UPDATED
+    - APPROVED
+    - REJECTED
+    - DELETED
+    - DUE_DATE_CHANGED
+- actor_id (uuid, FK → auth.users(id))
+- created_at (timestamptz)
+
+## 4.2 ER図
+
+```mermaid
+erDiagram
+  USERS {
+    uuid id PK
+  }
+
+  WORKSPACES {
+    uuid id PK
+    text name
+    uuid owner_id FK
+    timestamptz created_at
+    text description
+    timestamptz updated_at
+  }
+
+  PROFILES {
+    uuid id PK
+    text display_name
+    timestamptz created_at
+    timestamptz updated_at
+  }
+
+  WORKSPACE_MEMBERS {
+    uuid id PK
+    uuid workspace_id FK
+    uuid user_id FK
+    enum role
+    timestamptz created_at
+  }
+
+  PROJECTS {
+    uuid id PK
+    uuid workspace_id FK
+    text name
+    timestamptz created_at
+    text description
+    timestamptz updated_at
+  }
+
+  TASKS {
+    uuid id PK
+    uuid workspace_id FK
+    uuid project_id FK
+    uuid assignee_id FK
+    uuid created_by FK
+    text title
+    timestamptz due_date
+    text definition_of_done
+    enum approval_status
+    enum work_status
+    timestamptz created_at
+  }
+
+  TASK_COMMENTS {
+    uuid id PK
+    uuid task_id FK
+    uuid user_id FK
+    text body
+    timestamptz created_at
+  }
+
+  AUDIT_LOGS {
+    uuid id PK
+    uuid workspace_id FK
+    enum entity_type
+    uuid entity_id
+    enum event_type
+    uuid actor_id FK
+    timestamptz created_at
+  }
+
+  USERS ||--|| PROFILES : has
+  USERS ||--o{ WORKSPACES : owns
+  WORKSPACES ||--o{ WORKSPACE_MEMBERS : has
+  USERS ||--o{ WORKSPACE_MEMBERS : joins
+
+  WORKSPACES ||--o{ PROJECTS : has
+  PROJECTS ||--o{ TASKS : has
+  WORKSPACES ||--o{ TASKS : contains
+
+  TASKS ||--o{ TASK_COMMENTS : has
+  USERS ||--o{ TASK_COMMENTS : writes
+
+  USERS ||--o{ TASKS : assigned
+  USERS ||--o{ TASKS : created
+
+  WORKSPACES ||--o{ AUDIT_LOGS : has
+  USERS ||--o{ AUDIT_LOGS : acts
+```
+
+# 5. 状態遷移設計
+
+## 5.1 ApprovalStatus
+
+Draft
+
+→ PendingApproval
+
+→ Approved / Rejected
+
+### 制約
+
+Approved以外は作業開始不可。
+
+---
+
+## 5.2 WorkStatus
+
+NotStarted
+
+→ InProgress
+
+→ Done
+
+---
+
+## ✅ 5.3 状態整合マトリクス
+
+| Approval | NotStarted | InProgress | Done |
+| --- | --- | --- | --- |
+| Draft | ✅ | ❌ | ❌ |
+| PendingApproval | ✅ | ❌ | ❌ |
+| Rejected | ✅ | ❌ | ❌ |
+| Approved | ✅ | ✅ | ✅ |
+
+# 6. API設計
+
+## 6.1 設計方針
+
+- Supabase Auth
+- Workspace所属チェック
+- RBACチェック
+- 状態遷移制約
+- APIレベル強制
+- audit_logs記録
+
+---
+
+## 6.2 共通レスポンス
+
+| Code | Meaning |
+| --- | --- |
+| 400 | 入力不正 |
+| 401 | 未認証 |
+| 403 | 権限/状態違反 |
+| 404 | 存在しない |
+| 409 | 整合性違反 |
+
+---
+
+## 6.3 APIエンドポイント構成
+
+## APIエンドポイント一覧（何をするか込み）
 
 ## API 設計
 
@@ -44,7 +457,7 @@ Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/bui
 ### ロール定義
 
 | ロール | 説明 |
-|--------|------|
+| --- | --- |
 | `owner` | ワークスペース所有者。全操作が可能 |
 | `manager` | ワークスペース管理者。タスク承認・メンバー管理が可能 |
 | `member` | 一般メンバー。タスクの作成・進捗更新が可能 |
@@ -54,7 +467,7 @@ Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/bui
 ### プロフィール
 
 | メソッド | エンドポイント | 説明 | 権限 | リクエストボディ |
-|----------|---------------|------|------|----------------|
+| --- | --- | --- | --- | --- |
 | `GET` | `/api/me` | 自分のプロフィール取得 | ログインユーザー | - |
 | `PATCH` | `/api/me` | 自分のプロフィール更新 | ログインユーザー | `display_name` (1〜50文字) |
 
@@ -63,7 +476,7 @@ Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/bui
 ### ワークスペース
 
 | メソッド | エンドポイント | 説明 | 権限 | リクエストボディ |
-|----------|---------------|------|------|----------------|
+| --- | --- | --- | --- | --- |
 | `GET` | `/api/workspaces` | 所属ワークスペース一覧取得 | ログインユーザー | - |
 | `POST` | `/api/workspaces` | ワークスペース作成 | ログインユーザー | `name` (必須, 1〜50文字), `description` (任意) |
 | `GET` | `/api/workspaces/[id]` | ワークスペース詳細取得 | メンバー以上 | - |
@@ -75,16 +488,16 @@ Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/bui
 ### ワークスペースメンバー
 
 | メソッド | エンドポイント | 説明 | 権限 | リクエストボディ |
-|----------|---------------|------|------|----------------|
+| --- | --- | --- | --- | --- |
 | `GET` | `/api/workspaces/[id]/members` | メンバー一覧取得 | メンバー以上 | - |
-| `PATCH` | `/api/workspaces/[id]/members/[userId]/role` | メンバーのロール変更 | owner / manager | `role` (`owner` \| `manager` \| `member`) |
+| `PATCH` | `/api/workspaces/[id]/members/[userId]/role` | メンバーのロール変更 | owner / manager | `role` (`owner` | `manager` | `member`) |
 
 ---
 
 ### プロジェクト
 
 | メソッド | エンドポイント | 説明 | 権限 | リクエストボディ |
-|----------|---------------|------|------|----------------|
+| --- | --- | --- | --- | --- |
 | `GET` | `/api/workspaces/[id]/projects` | プロジェクト一覧取得 | メンバー以上 | - |
 | `POST` | `/api/workspaces/[id]/projects` | プロジェクト作成 | メンバー以上 | `name` (必須, 1〜100文字), `description` (任意) |
 | `GET` | `/api/projects/[id]` | プロジェクト詳細取得 | メンバー以上 | - |
@@ -96,26 +509,26 @@ Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/bui
 ### タスク
 
 | メソッド | エンドポイント | 説明 | 権限 | リクエストボディ |
-|----------|---------------|------|------|----------------|
+| --- | --- | --- | --- | --- |
 | `GET` | `/api/projects/[id]/tasks` | タスク一覧取得 | メンバー以上 | - |
 | `POST` | `/api/projects/[id]/tasks` | タスク作成 | メンバー以上 | `title` (必須, 1〜200文字), `assignee_id` (任意), `due_date` (任意, ISO 8601), `definition_of_done` (任意) |
 | `GET` | `/api/tasks/[id]` | タスク詳細取得 | メンバー以上 | - |
 | `PATCH` | `/api/tasks/[id]` | タスク情報更新 | 作成者 / manager 以上 | `title`, `assignee_id`, `due_date`, `definition_of_done`, `approval_status`, `work_status` (すべて任意) |
 | `DELETE` | `/api/tasks/[id]` | タスク削除 | メンバー以上 | - |
-| `PATCH` | `/api/tasks/[id]/status` | タスク進捗ステータス更新 | 担当者 / 作成者 / manager 以上 | `work_status` (`NOT_STARTED` \| `IN_PROGRESS` \| `DONE`) |
-| `PATCH` | `/api/tasks/[id]/due-date` | タスク期限変更（履歴記録あり） | owner / manager | `new_due_date` (ISO 8601 \| null), `reason` (任意) |
+| `PATCH` | `/api/tasks/[id]/status` | タスク進捗ステータス更新 | 担当者 / 作成者 / manager 以上 | `work_status` (`NOT_STARTED` | `IN_PROGRESS` | `DONE`) |
+| `PATCH` | `/api/tasks/[id]/due-date` | タスク期限変更（履歴記録あり） | owner / manager | `new_due_date` (ISO 8601 | null), `reason` (任意) |
 
 ---
 
 ### タスク承認フロー
 
 | メソッド | エンドポイント | 説明 | 権限 | 遷移 |
-|----------|---------------|------|------|------|
+| --- | --- | --- | --- | --- |
 | `POST` | `/api/tasks/[id]/submit-approval` | 承認申請 | 作成者 / 担当者 / manager 以上 | `DRAFT` → `PENDING` |
 | `POST` | `/api/tasks/[id]/approve` | タスク承認 | owner / manager | `PENDING` → `APPROVED` |
 | `POST` | `/api/tasks/[id]/reject` | タスク差し戻し | owner / manager | `PENDING` → `REJECTED` |
 
-#### 承認ステータス遷移
+### 承認ステータス遷移
 
 ```
 DRAFT ──submit-approval──▶ PENDING ──approve──▶ APPROVED
@@ -123,13 +536,14 @@ DRAFT ──submit-approval──▶ PENDING ──approve──▶ APPROVED
 ```
 
 > `work_status` を `IN_PROGRESS` または `DONE` に変更するには `approval_status` が `APPROVED` である必要があります。
+> 
 
 ---
 
 ### タスクコメント
 
 | メソッド | エンドポイント | 説明 | 権限 | リクエストボディ |
-|----------|---------------|------|------|----------------|
+| --- | --- | --- | --- | --- |
 | `GET` | `/api/tasks/[id]/comments` | コメント一覧取得 | メンバー以上 | - |
 | `POST` | `/api/tasks/[id]/comments` | コメント投稿 | メンバー以上 | `body` (必須, 1〜2000文字) |
 | `PATCH` | `/api/tasks/[id]/comments/[commentId]` | コメント編集 | 投稿者本人のみ | `body` (必須, 1〜2000文字) |
@@ -140,7 +554,7 @@ DRAFT ──submit-approval──▶ PENDING ──approve──▶ APPROVED
 ### 監査ログ
 
 | メソッド | エンドポイント | 説明 | 権限 | クエリパラメータ |
-|----------|---------------|------|------|----------------|
+| --- | --- | --- | --- | --- |
 | `GET` | `/api/workspaces/[id]/audit-logs` | 監査ログ一覧取得 | メンバー以上 | `limit` (任意, 1〜500, デフォルト: 100) |
 
 ---
@@ -148,9 +562,102 @@ DRAFT ──submit-approval──▶ PENDING ──approve──▶ APPROVED
 ### 共通エラーレスポンス
 
 | ステータス | 説明 |
-|-----------|------|
+| --- | --- |
 | `400 Bad Request` | バリデーションエラー / 不正な状態遷移 |
 | `401 Unauthorized` | 未認証 |
 | `403 Forbidden` | 権限不足 |
 | `404 Not Found` | リソースが存在しない |
 | `500 Internal Server Error` | サーバーエラー |
+
+# 7. ディレクトリ構成（3層アーキテクチャ）
+
+## Layer構成
+
+```
+Presentation
+↓
+Application
+↓
+Infrastructure
+```
+
+---
+
+## 完成構成
+
+```
+src/
+ ├── app/                  # Presentation
+ ├── components/
+ ├── application/          # Usecases
+ │    ├── usecases/
+ │    ├── policies/
+ │    ├── ports/
+ │    └── errors/
+ ├── infrastructure/       # DB実装
+ │    ├── repositories/
+ │    └── supabase/
+ ├── lib/
+ └── types/
+```
+
+---
+
+### 依存ルール
+
+✅ app → application
+
+✅ application → ports
+
+✅ infrastructure → ports実装
+
+❌ infrastructure → application
+
+---
+
+# 8. 制約事項
+
+- 承認前進捗変更禁止
+- Workspace外アクセス禁止
+- 担当者1名固定
+- Member期限変更禁止
+
+---
+
+# 9. 将来的拡張性
+
+- 招待機能
+- サブタスク
+- 通知
+- ダッシュボード
+- ガントチャート
+
+---
+
+# 10. 技術スタック
+
+### Frontend
+
+- TypeScript
+- Next.js 14
+- React 18
+- shadcn/ui
+- Tailwind
+
+### Backend
+
+- Next.js Route Handlers
+- RBAC + RLS
+
+### DB
+
+- Supabase PostgreSQL
+- Migration管理
+
+### Auth
+
+- Supabase Auth
+
+### Deploy
+
+- Vercel
