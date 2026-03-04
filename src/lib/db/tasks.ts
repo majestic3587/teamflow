@@ -80,6 +80,16 @@ export async function createTask(
   return data as Task;
 }
 
+/** タスクを削除（RLS でプロジェクトメンバーチェック） */
+export async function deleteTask(
+  supabase: SupabaseClient,
+  taskId: string
+): Promise<boolean> {
+  const { error } = await supabase.from("tasks").delete().eq("id", taskId);
+  if (error) console.error("[deleteTask] error:", error);
+  return !error;
+}
+
 /** タスクを更新（RLS で作成者 or manager/owner チェック） */
 export async function updateTask(
   supabase: SupabaseClient,

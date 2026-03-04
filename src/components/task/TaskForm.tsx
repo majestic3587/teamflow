@@ -58,6 +58,8 @@ export function TaskForm(props: Props) {
   );
   const [status, setStatus] = useState<"idle" | "saving" | "error">("idle");
   const [errorMsg, setErrorMsg] = useState("");
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -95,6 +97,23 @@ export function TaskForm(props: Props) {
     } else {
       router.push(`/dashboard/projects/${props.projectId}/tasks`);
     }
+    router.refresh();
+  }
+
+  async function handleDelete() {
+    if (!isEdit) return;
+    setDeleting(true);
+
+    const res = await fetch(`/api/tasks/${task!.id}`, { method: "DELETE" });
+
+    if (!res.ok) {
+      const json = await res.json().catch(() => ({}));
+      setErrorMsg(json.error ?? "削除に失敗しました。");
+      setDeleting(false);
+      return;
+    }
+
+    router.push(`/dashboard/projects/${task!.project_id}/tasks`);
     router.refresh();
   }
 
@@ -243,6 +262,40 @@ export function TaskForm(props: Props) {
             ? "変更を保存"
             : "タスクを作成"}
       </button>
+
+      {/* Danger Zone */}
+      {isEdit && (
+        <div className="mt-10 border-t border-gray-100 pt-8">
+          <h3 className="text-sm font-semibold text-red-600 mb-3">Danger Zone</h3>
+          {!confirmDelete ? (
+            <button
+              type="button"
+              onClick={() => setConfirmDelete(true)}
+              className="text-sm text-red-500 border border-red-200 px-4 py-2 rounded-xl hover:bg-red-50 transition-colors"
+            >
+              このタスクを削除する
+            </button>
+          ) : (
+            <div className="flex items-center gap-3">
+              <button
+                type="button"
+                onClick={handleDelete}
+                disabled={deleting}
+                className="text-sm text-white bg-red-600 px-4 py-2 rounded-xl hover:bg-red-700 transition-colors disabled:opacity-50"
+              >
+                {deleting ? "削除中..." : "本当に削除する"}
+              </button>
+              <button
+                type="button"
+                onClick={() => setConfirmDelete(false)}
+                className="text-sm text-gray-500 hover:text-gray-700"
+              >
+                キャンセル
+              </button>
+            </div>
+          )}
+        </div>
+      )}
     </form>
   );
 }

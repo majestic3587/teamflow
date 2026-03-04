@@ -1,12 +1,13 @@
 import { NextRequest } from "next/server";
 import { createClient } from "@/utils/supabase/server";
-import { getTaskById, updateTask } from "@/lib/db/tasks";
+import { getTaskById, updateTask, deleteTask } from "@/lib/db/tasks";
 import {
   ok,
   unauthorized,
   notFound,
   forbidden,
   badRequest,
+  serverError,
 } from "@/lib/api-response";
 import type { TaskApprovalStatus, TaskWorkStatus, UpdateTaskInput } from "@/types/task";
 
@@ -134,4 +135,27 @@ export async function PATCH(request: NextRequest, { params }: Params) {
   if (!updated) return forbidden();
 
   return ok(updated);
+}
+
+// ─────────────────────────────────────────
+// DELETE /api/tasks/[id]
+// タスク削除（プロジェクトメンバー・RLS）
+// ─────────────────────────────────────────
+export async function DELETE(_request: NextRequest, { params }: Params) {
+  const supabase = await createClient();
+  const { id } = await params;
+
+  const {
+    data: { user },
+    error: authError,
+  } = await supabase.auth.getUser();
+  if (authError || !user) return unauthorized();
+
+  const existing = await getTaskById(supabase, id);
+  if (!existing) return notFound();
+
+  const success = await deleteTask(supabase, id);
+  if (!success) return serverError();
+
+  return ok({ id });
 }
