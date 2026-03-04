@@ -1,21 +1,65 @@
 import { redirect, notFound } from "next/navigation";
 import Link from "next/link";
+import { Suspense } from "react";
 import { createClient } from "@/utils/supabase/server";
 import { getProjectById } from "@/lib/db/projects";
 import { getWorkspaceById } from "@/lib/db/workspaces";
 import { getTasksByProjectId } from "@/lib/db/tasks";
 import { DashboardHeader } from "@/components/dashboard/DashboardHeader";
 import { TaskCard } from "@/components/task/TaskCard";
-import type { Task } from "@/types/task";
+import { TaskFilterBar } from "@/components/task/TaskFilterBar";
+import type { Task, TaskWorkStatus, TaskApprovalStatus } from "@/types/task";
 
 export const metadata = {
   title: "タスク一覧 | TeamFlow",
 };
 
-type Props = { params: Promise<{ id: string }> };
+type Props = {
+  params: Promise<{ id: string }>;
+  searchParams: Promise<{ ws?: string; as?: string; due?: string }>;
+};
 
-export default async function ProjectTasksPage({ params }: Props) {
+function filterTasks(
+  tasks: Task[],
+  ws: string,
+  as: string,
+  due: string
+): Task[] {
+  const selectedWork = ws.split(",").filter(Boolean) as TaskWorkStatus[];
+  const selectedApproval = as.split(",").filter(Boolean) as TaskApprovalStatus[];
+  const now = new Date();
+
+  return tasks.filter((task) => {
+    if (selectedWork.length > 0 && !selectedWork.includes(task.work_status)) {
+      return false;
+    }
+    if (
+      selectedApproval.length > 0 &&
+      !selectedApproval.includes(task.approval_status)
+    ) {
+      return false;
+    }
+    if (due === "overdue") {
+      if (
+        !task.due_date ||
+        task.work_status === "DONE" ||
+        new Date(task.due_date) >= now
+      ) {
+        return false;
+      }
+    }
+    if (due === "upcoming") {
+      if (!task.due_date || new Date(task.due_date) < now) {
+        return false;
+      }
+    }
+    return true;
+  });
+}
+
+export default async function ProjectTasksPage({ params, searchParams }: Props) {
   const { id: projectId } = await params;
+  const { ws = "", as = "", due = "" } = await searchParams;
   const supabase = await createClient();
 
   const {
@@ -31,6 +75,8 @@ export default async function ProjectTasksPage({ params }: Props) {
     getTasksByProjectId(supabase, projectId),
   ]);
 
+  const filteredTasks = filterTasks(tasks, ws, as, due);
+
   // 担当者プロフィールを一括取得
   const assigneeIds = Array.from(
     new Set(
@@ -45,6 +91,8 @@ export default async function ProjectTasksPage({ params }: Props) {
       .in("id", assigneeIds);
     profiles?.forEach((p) => profileMap.set(p.id, p.display_name));
   }
+
+  const hasFilter = ws !== "" || as !== "" || due !== "";
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -84,7 +132,11 @@ export default async function ProjectTasksPage({ params }: Props) {
         <div className="flex items-center justify-between mb-6">
           <div>
             <h1 className="text-xl font-bold text-gray-900">タスク</h1>
-            <p className="text-sm text-gray-500 mt-1">{tasks.length} 件のタスク</p>
+            <p className="text-sm text-gray-500 mt-1">
+              {hasFilter
+                ? `${filteredTasks.length} / ${tasks.length} 件のタスク`
+                : `${tasks.length} 件のタスク`}
+            </p>
           </div>
           <Link
             href={`/dashboard/projects/${projectId}/tasks/new`}
@@ -93,6 +145,14 @@ export default async function ProjectTasksPage({ params }: Props) {
             新規作成
           </Link>
         </div>
+
+        {/* フィルターバー */}
+        <Suspense>
+          <TaskFilterBar
+            totalCount={tasks.length}
+            filteredCount={filteredTasks.length}
+          />
+        </Suspense>
 
         {/* タスク一覧 */}
         {tasks.length === 0 ? (
@@ -120,9 +180,30 @@ export default async function ProjectTasksPage({ params }: Props) {
               最初のタスクを作成する →
             </Link>
           </div>
+        ) : filteredTasks.length === 0 ? (
+          <div className="text-center py-20">
+            <div className="w-16 h-16 bg-gray-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
+              <svg
+                className="w-8 h-8 text-gray-400"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={1.5}
+                  d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+                />
+              </svg>
+            </div>
+            <p className="text-gray-500 text-sm">
+              条件に一致するタスクがありません
+            </p>
+          </div>
         ) : (
           <div className="grid gap-4 sm:grid-cols-2">
-            {tasks.map((task: Task) => (
+            {filteredTasks.map((task: Task) => (
               <TaskCard
                 key={task.id}
                 task={task}
