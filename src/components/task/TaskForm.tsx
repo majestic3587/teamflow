@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import type { Task, TaskApprovalStatus, TaskWorkStatus } from "@/types/task";
+import type { Task } from "@/types/task";
 
 type AssigneeOption = {
   id: string;
@@ -23,18 +23,6 @@ type Props =
       projectId?: undefined;
     };
 
-const APPROVAL_OPTIONS: { value: TaskApprovalStatus; label: string }[] = [
-  { value: "DRAFT", label: "下書き" },
-  { value: "PENDING", label: "承認待ち" },
-  { value: "APPROVED", label: "承認済み" },
-  { value: "REJECTED", label: "却下" },
-];
-
-const WORK_OPTIONS: { value: TaskWorkStatus; label: string }[] = [
-  { value: "NOT_STARTED", label: "未着手" },
-  { value: "IN_PROGRESS", label: "進行中" },
-  { value: "DONE", label: "完了" },
-];
 
 function toDateInputValue(iso: string | null | undefined): string {
   if (!iso) return "";
@@ -50,12 +38,6 @@ export function TaskForm(props: Props) {
   const [assigneeId, setAssigneeId] = useState(task?.assignee_id ?? "");
   const [dueDate, setDueDate] = useState(toDateInputValue(task?.due_date));
   const [dod, setDod] = useState(task?.definition_of_done ?? "");
-  const [approvalStatus, setApprovalStatus] = useState<TaskApprovalStatus>(
-    task?.approval_status ?? "DRAFT"
-  );
-  const [workStatus, setWorkStatus] = useState<TaskWorkStatus>(
-    task?.work_status ?? "NOT_STARTED"
-  );
   const [status, setStatus] = useState<"idle" | "saving" | "error">("idle");
   const [errorMsg, setErrorMsg] = useState("");
   const [confirmDelete, setConfirmDelete] = useState(false);
@@ -75,8 +57,6 @@ export function TaskForm(props: Props) {
       assignee_id: assigneeId || null,
       due_date: dueDate ? new Date(dueDate).toISOString() : null,
       definition_of_done: dod.trim() || null,
-      approval_status: approvalStatus,
-      work_status: workStatus,
     };
 
     const res = await fetch(url, {
@@ -175,45 +155,6 @@ export function TaskForm(props: Props) {
         />
       </div>
 
-      {/* 進捗ステータス */}
-      <div>
-        <label htmlFor="taskWorkStatus" className={labelClass}>
-          進捗
-        </label>
-        <select
-          id="taskWorkStatus"
-          value={workStatus}
-          onChange={(e) => setWorkStatus(e.target.value as TaskWorkStatus)}
-          className={inputClass}
-        >
-          {WORK_OPTIONS.map((o) => (
-            <option key={o.value} value={o.value}>
-              {o.label}
-            </option>
-          ))}
-        </select>
-      </div>
-
-      {/* 承認ステータス */}
-      <div>
-        <label htmlFor="taskApprovalStatus" className={labelClass}>
-          承認ステータス
-        </label>
-        <select
-          id="taskApprovalStatus"
-          value={approvalStatus}
-          onChange={(e) =>
-            setApprovalStatus(e.target.value as TaskApprovalStatus)
-          }
-          className={inputClass}
-        >
-          {APPROVAL_OPTIONS.map((o) => (
-            <option key={o.value} value={o.value}>
-              {o.label}
-            </option>
-          ))}
-        </select>
-      </div>
 
       {/* 完了定義 */}
       <div>

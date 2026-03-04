@@ -1,0 +1,51 @@
+import { NextRequest } from "next/server";
+import { createClient } from "@/utils/supabase/server";
+import { getTaskById, updateTask } from "@/lib/db/tasks";
+import { getWorkspaceMembers } from "@/lib/db/workspaces";
+import {
+  ok,
+  unauthorized,
+  notFound,
+  forbidden,
+  badRequest,
+} from "@/lib/api-response";
+
+type Params = { params: Promise<{ id: string }> };
+
+// ─────────────────────────────────────────
+// POST /api/tasks/[id]/reject
+// PendingApproval → Rejected に遷移（差し戻し）
+// 実行可能者: manager または owner（ワークスペース）
+// ─────────────────────────────────────────
+export async function POST(_request: NextRequest, { params }: Params) {
+  const supabase = await createClient();
+  const { id } = await params;
+
+  const {
+    data: { user },
+    error: authError,
+  } = await supabase.auth.getUser();
+  if (authError || !user) return unauthorized();
+
+  const task = await getTaskById(supabase, id);
+  if (!task) return notFound();
+
+  // 状態チェック: PENDING のみ差し戻し可能
+  if (task.approval_status !== "PENDING") {
+    return badRequest(
+      `差し戻しは PENDING 状態のタスクにのみ実行できます。現在の状態: ${task.approval_status}`
+    );
+  }
+
+  // 権限チェック: manager または owner のみ差し戻し可能
+  const members = await getWorkspaceMembers(supabase, task.workspace_id);
+  const currentMember = members.find((m) => m.user_id === user.id);
+  const canReject =
+    currentMember?.role === "owner" || currentMember?.role === "manager";
+  if (!canReject) return forbidden();
+
+  const updated = await updateTask(supabase, id, { approval_status: "REJECTED" });
+  if (!updated) return forbidden();
+
+  return ok(updated);
+}
