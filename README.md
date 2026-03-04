@@ -2,6 +2,14 @@
 
 「上長承認がないと着手できない」×「期限変更は履歴で残る」BtoBチームタスク管理SaaS MVP
 
+owner
+email： user@example.com
+password: hogehoge
+
+member
+email: member@example.com
+password: hogehoge
+
 # 1.プロジェクト概要・目的
 
 ## 1.1 背景
