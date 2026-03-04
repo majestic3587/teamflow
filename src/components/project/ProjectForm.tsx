@@ -27,12 +27,12 @@ export function ProjectForm(props: Props) {
     setStatus("saving");
     setErrorMsg("");
 
-    const url = isEdit
-      ? `/api/projects/${project.id}`
+    const url = props.mode === "edit"
+      ? `/api/projects/${props.project.id}`
       : `/api/workspaces/${props.workspaceId}/projects`;
 
     const res = await fetch(url, {
-      method: isEdit ? "PATCH" : "POST",
+      method: props.mode === "edit" ? "PATCH" : "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         name: name.trim(),
@@ -47,8 +47,8 @@ export function ProjectForm(props: Props) {
       return;
     }
 
-    if (isEdit) {
-      router.push(`/dashboard/workspaces/${project.workspace_id}/projects`);
+    if (props.mode === "edit") {
+      router.push(`/dashboard/workspaces/${props.project.workspace_id}/projects`);
     } else {
       router.push(`/dashboard/workspaces/${props.workspaceId}/projects`);
     }
@@ -59,7 +59,9 @@ export function ProjectForm(props: Props) {
     if (!isEdit) return;
     setDeleting(true);
 
-    const res = await fetch(`/api/projects/${project.id}`, {
+    if (props.mode !== "edit") return;
+
+    const res = await fetch(`/api/projects/${props.project.id}`, {
       method: "DELETE",
     });
 
@@ -70,7 +72,7 @@ export function ProjectForm(props: Props) {
       return;
     }
 
-    router.push(`/dashboard/workspaces/${project.workspace_id}/projects`);
+    router.push(`/dashboard/workspaces/${props.project.workspace_id}/projects`);
     router.refresh();
   }
 
