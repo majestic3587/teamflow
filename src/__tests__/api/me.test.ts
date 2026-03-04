@@ -1,50 +1,43 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { NextRequest } from "next/server";
 import { GET, PATCH } from "@/app/api/me/route";
+import { AppError } from "@/application/errors";
 import {
-  createMockSupabase,
+  createMockContainer,
   makeRequest,
   mockProfile,
-  mockUser,
   parseResponse,
   OWNER_ID,
 } from "../helpers/mock-supabase";
 
-vi.mock("@/utils/supabase/server");
-vi.mock("@/lib/db/profiles");
+vi.mock("@/infrastructure/supabase/container");
 
-import { createClient } from "@/utils/supabase/server";
-import { getProfileById, updateProfile, profileFromUser } from "@/lib/db/profiles";
-
-const mockedCreateClient = vi.mocked(createClient);
-const mockedGetProfileById = vi.mocked(getProfileById);
-const mockedUpdateProfile = vi.mocked(updateProfile);
-const mockedProfileFromUser = vi.mocked(profileFromUser);
+import { createContainer } from "@/infrastructure/supabase/container";
+const mockedCreateContainer = vi.mocked(createContainer);
 
 // ─── GET /api/me ───────────────────────────────────────────────
 
 describe("GET /api/me", () => {
+  let container: ReturnType<typeof createMockContainer>;
+
   beforeEach(() => {
     vi.clearAllMocks();
+    container = createMockContainer();
+    mockedCreateContainer.mockResolvedValue(container as never);
   });
 
   it("未認証の場合 401 を返す", async () => {
-    mockedCreateClient.mockResolvedValue(
-      createMockSupabase(null) as never
+    container.profileUsecase.getMyProfile.mockRejectedValue(
+      new AppError("UNAUTHORIZED", "認証が必要です。")
     );
 
     const res = await GET();
-    const { status } = await parseResponse(res);
-
-    expect(status).toBe(401);
+    expect((await parseResponse(res)).status).toBe(401);
   });
 
-  it("profiles テーブルから取得できた場合 200 とプロフィールを返す", async () => {
-    mockedCreateClient.mockResolvedValue(
-      createMockSupabase(OWNER_ID) as never
-    );
+  it("プロフィールを 200 で返す", async () => {
     const profile = mockProfile(OWNER_ID);
-    mockedGetProfileById.mockResolvedValue(profile);
+    container.profileUsecase.getMyProfile.mockResolvedValue(profile);
 
     const res = await GET();
     const { status, body } = await parseResponse(res);
@@ -53,52 +46,39 @@ describe("GET /api/me", () => {
     expect(body.data.id).toBe(OWNER_ID);
     expect(body.data.display_name).toBe(profile.display_name);
   });
-
-  it("profiles が null の場合は auth.users からフォールバックして返す", async () => {
-    mockedCreateClient.mockResolvedValue(
-      createMockSupabase(OWNER_ID) as never
-    );
-    mockedGetProfileById.mockResolvedValue(null);
-    const fallback = mockProfile(OWNER_ID);
-    mockedProfileFromUser.mockReturnValue(fallback);
-
-    const res = await GET();
-    const { status, body } = await parseResponse(res);
-
-    expect(status).toBe(200);
-    expect(body.data.id).toBe(OWNER_ID);
-    expect(mockedProfileFromUser).toHaveBeenCalledWith(mockUser(OWNER_ID));
-  });
 });
 
 // ─── PATCH /api/me ─────────────────────────────────────────────
 
 describe("PATCH /api/me", () => {
+  let container: ReturnType<typeof createMockContainer>;
+
   beforeEach(() => {
     vi.clearAllMocks();
+    container = createMockContainer();
+    mockedCreateContainer.mockResolvedValue(container as never);
   });
 
   it("未認証の場合 401 を返す", async () => {
-    mockedCreateClient.mockResolvedValue(
-      createMockSupabase(null) as never
+    container.profileUsecase.updateMyProfile.mockRejectedValue(
+      new AppError("UNAUTHORIZED", "認証が必要です。")
     );
-    const req = new NextRequest(makeRequest("PATCH", { display_name: "新しい名前" }));
 
+    const req = new NextRequest(
+      makeRequest("PATCH", { display_name: "新しい名前" })
+    );
     const res = await PATCH(req);
-    const { status } = await parseResponse(res);
-
-    expect(status).toBe(401);
+    expect((await parseResponse(res)).status).toBe(401);
   });
 
   it("正常な display_name で 200 を返す", async () => {
-    mockedCreateClient.mockResolvedValue(
-      createMockSupabase(OWNER_ID) as never
-    );
     const updated = mockProfile(OWNER_ID);
     updated.display_name = "新しい名前";
-    mockedUpdateProfile.mockResolvedValue(updated);
+    container.profileUsecase.updateMyProfile.mockResolvedValue(updated);
 
-    const req = new NextRequest(makeRequest("PATCH", { display_name: "新しい名前" }));
+    const req = new NextRequest(
+      makeRequest("PATCH", { display_name: "新しい名前" })
+    );
     const res = await PATCH(req);
     const { status, body } = await parseResponse(res);
 
@@ -107,47 +87,48 @@ describe("PATCH /api/me", () => {
   });
 
   it("display_name が空文字の場合 400 を返す", async () => {
-    mockedCreateClient.mockResolvedValue(
-      createMockSupabase(OWNER_ID) as never
+    container.profileUsecase.updateMyProfile.mockRejectedValue(
+      new AppError(
+        "BAD_REQUEST",
+        "display_name は1文字以上の文字列で指定してください。"
+      )
     );
+
     const req = new NextRequest(makeRequest("PATCH", { display_name: "  " }));
-
     const res = await PATCH(req);
-    const { status } = await parseResponse(res);
-
-    expect(status).toBe(400);
+    expect((await parseResponse(res)).status).toBe(400);
   });
 
   it("display_name が 50 文字超の場合 400 を返す", async () => {
-    mockedCreateClient.mockResolvedValue(
-      createMockSupabase(OWNER_ID) as never
+    container.profileUsecase.updateMyProfile.mockRejectedValue(
+      new AppError(
+        "BAD_REQUEST",
+        "display_name は50文字以内で指定してください。"
+      )
     );
+
     const req = new NextRequest(
       makeRequest("PATCH", { display_name: "あ".repeat(51) })
     );
-
     const res = await PATCH(req);
-    const { status } = await parseResponse(res);
-
-    expect(status).toBe(400);
+    expect((await parseResponse(res)).status).toBe(400);
   });
 
   it("更新フィールドが空の場合 400 を返す", async () => {
-    mockedCreateClient.mockResolvedValue(
-      createMockSupabase(OWNER_ID) as never
+    container.profileUsecase.updateMyProfile.mockRejectedValue(
+      new AppError("BAD_REQUEST", "更新するフィールドを指定してください。")
     );
+
     const req = new NextRequest(makeRequest("PATCH", {}));
-
     const res = await PATCH(req);
-    const { status } = await parseResponse(res);
-
-    expect(status).toBe(400);
+    expect((await parseResponse(res)).status).toBe(400);
   });
 
   it("不正な JSON の場合 400 を返す", async () => {
-    mockedCreateClient.mockResolvedValue(
-      createMockSupabase(OWNER_ID) as never
+    container.profileUsecase.updateMyProfile.mockRejectedValue(
+      new AppError("BAD_REQUEST", "更新するフィールドを指定してください。")
     );
+
     const req = new NextRequest(
       new Request("http://localhost/api/me", {
         method: "PATCH",
@@ -155,22 +136,18 @@ describe("PATCH /api/me", () => {
         body: "invalid json",
       })
     );
-
     const res = await PATCH(req);
-    const { status } = await parseResponse(res);
-
-    expect(status).toBe(400);
+    expect((await parseResponse(res)).status).toBe(400);
   });
 
-  it("updateProfile が null の場合 auth.users にフォールバックして 200 を返す", async () => {
-    const mockSupabase = createMockSupabase(OWNER_ID);
-    mockedCreateClient.mockResolvedValue(mockSupabase as never);
-    mockedUpdateProfile.mockResolvedValue(null);
+  it("フォールバックで返す場合も 200 を返す", async () => {
     const fallback = mockProfile(OWNER_ID);
     fallback.display_name = "フォールバック名";
-    mockedProfileFromUser.mockReturnValue(fallback);
+    container.profileUsecase.updateMyProfile.mockResolvedValue(fallback);
 
-    const req = new NextRequest(makeRequest("PATCH", { display_name: "フォールバック名" }));
+    const req = new NextRequest(
+      makeRequest("PATCH", { display_name: "フォールバック名" })
+    );
     const res = await PATCH(req);
     const { status, body } = await parseResponse(res);
 

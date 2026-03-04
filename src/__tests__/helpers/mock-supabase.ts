@@ -1,22 +1,10 @@
 import { vi } from "vitest";
-import type { User } from "@supabase/supabase-js";
 import type { Task } from "@/types/task";
 import type { Profile } from "@/types/profile";
-
-// ─── 固定フィクスチャ ────────────────────────────────────────────
 
 export const OWNER_ID = "owner-user-id";
 export const MEMBER_ID = "member-user-id";
 export const OTHER_ID = "other-user-id";
-
-export const mockUser = (id = OWNER_ID): User =>
-  ({
-    id,
-    email: `${id}@example.com`,
-    user_metadata: { display_name: `User ${id}` },
-    created_at: "2024-01-01T00:00:00Z",
-    updated_at: "2024-01-01T00:00:00Z",
-  }) as unknown as User;
 
 export const mockProfile = (userId = OWNER_ID): Profile => ({
   id: userId,
@@ -40,39 +28,22 @@ export const mockTask = (overrides: Partial<Task> = {}): Task => ({
   ...overrides,
 });
 
-export const mockWorkspaceMembers = (userId = OWNER_ID, role = "owner") => [
-  {
-    id: "member-row-1",
-    workspace_id: "ws-1",
-    user_id: userId,
-    role,
-    created_at: "2024-01-01T00:00:00Z",
-    display_name: `User ${userId}`,
-    email: `${userId}@example.com`,
-  },
-];
+export const mockWorkspace = {
+  id: "ws-1",
+  name: "テストワークスペース",
+  description: "説明文",
+  owner_id: OWNER_ID,
+  created_at: "2024-01-01T00:00:00Z",
+  updated_at: "2024-01-01T00:00:00Z",
+};
 
-// ─── モック Supabase クライアント ────────────────────────────────
-
-export function createMockSupabase(authedUserId: string | null = OWNER_ID) {
-  const supabase = {
-    auth: {
-      getUser: vi.fn().mockResolvedValue(
-        authedUserId
-          ? { data: { user: mockUser(authedUserId) }, error: null }
-          : { data: { user: null }, error: new Error("Not authenticated") }
-      ),
-      updateUser: vi.fn().mockResolvedValue({
-        data: { user: mockUser(authedUserId ?? OWNER_ID) },
-        error: null,
-      }),
-    },
-    from: vi.fn(),
-  };
-  return supabase;
-}
-
-// ─── Next.js リクエスト生成ヘルパー ──────────────────────────────
+export const mockComment = {
+  id: "comment-1",
+  task_id: "task-1",
+  user_id: OWNER_ID,
+  body: "テストコメント",
+  created_at: "2024-01-01T00:00:00Z",
+};
 
 export function makeRequest(
   method: "GET" | "POST" | "PATCH" | "DELETE",
@@ -89,9 +60,55 @@ export const makeParams = (id: string) => ({
   params: Promise.resolve({ id }),
 });
 
-// ─── レスポンス検証ヘルパー ──────────────────────────────────────
+export const makeCommentParams = (id: string, commentId: string) => ({
+  params: Promise.resolve({ id, commentId }),
+});
 
 export async function parseResponse(res: Response) {
   const json = await res.json();
   return { status: res.status, body: json };
+}
+
+export function createMockContainer() {
+  return {
+    profileUsecase: {
+      getMyProfile: vi.fn(),
+      updateMyProfile: vi.fn(),
+    },
+    workspaceUsecase: {
+      getWorkspaces: vi.fn(),
+      getWorkspace: vi.fn(),
+      createWorkspace: vi.fn(),
+      updateWorkspace: vi.fn(),
+      deleteWorkspace: vi.fn(),
+      getMembers: vi.fn(),
+      updateMemberRole: vi.fn(),
+      getAuditLogs: vi.fn(),
+    },
+    projectUsecase: {
+      getProject: vi.fn(),
+      getProjectsByWorkspace: vi.fn(),
+      createProject: vi.fn(),
+      updateProject: vi.fn(),
+      deleteProject: vi.fn(),
+    },
+    taskUsecase: {
+      getTask: vi.fn(),
+      getTasksByProject: vi.fn(),
+      createTask: vi.fn(),
+      updateTask: vi.fn(),
+      deleteTask: vi.fn(),
+      submitApproval: vi.fn(),
+      approveTask: vi.fn(),
+      rejectTask: vi.fn(),
+      updateWorkStatus: vi.fn(),
+      updateDueDate: vi.fn(),
+    },
+    commentUsecase: {
+      getComments: vi.fn(),
+      createComment: vi.fn(),
+      updateComment: vi.fn(),
+      deleteComment: vi.fn(),
+    },
+  };
 }

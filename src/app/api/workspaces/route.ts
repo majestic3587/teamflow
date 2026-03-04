@@ -1,68 +1,31 @@
 import { NextRequest } from "next/server";
-import { createClient } from "@/utils/supabase/server";
-import { getWorkspacesByUserId, createWorkspace } from "@/lib/db/workspaces";
-import {
-  ok,
-  created,
-  unauthorized,
-  badRequest,
-  serverError,
-} from "@/lib/api-response";
-import { CreateWorkspaceInput } from "@/types/workspace";
+import { createContainer } from "@/infrastructure/supabase/container";
+import { ok, created, handleError } from "@/lib/api-handler";
 
-// ─────────────────────────────────────────
-// GET /api/workspaces
-// 自分が所属するワークスペース一覧を取得
-// ─────────────────────────────────────────
 export async function GET() {
-  const supabase = await createClient();
-
-  const { data: { user }, error: authError } = await supabase.auth.getUser();
-  if (authError || !user) return unauthorized();
-
-  const workspaces = await getWorkspacesByUserId(supabase, user.id);
-  return ok(workspaces);
+  try {
+    const { workspaceUsecase } = await createContainer();
+    const result = await workspaceUsecase.getWorkspaces();
+    return ok(result);
+  } catch (e) {
+    return handleError(e);
+  }
 }
 
-// ─────────────────────────────────────────
-// POST /api/workspaces
-// ワークスペースを新規作成
-// ─────────────────────────────────────────
 export async function POST(request: NextRequest) {
-  const supabase = await createClient();
-
-  const { data: { user }, error: authError } = await supabase.auth.getUser();
-  if (authError || !user) return unauthorized();
-
-  let body: unknown;
   try {
-    body = await request.json();
-  } catch {
-    return badRequest("リクエストボディが不正です。");
+    const { workspaceUsecase } = await createContainer();
+    let body: unknown;
+    try {
+      body = await request.json();
+    } catch {
+      body = {};
+    }
+    const result = await workspaceUsecase.createWorkspace(
+      body as Record<string, unknown>,
+    );
+    return created(result);
+  } catch (e) {
+    return handleError(e);
   }
-
-  const input = body as Record<string, unknown>;
-
-  const name = input.name;
-  if (typeof name !== "string" || name.trim().length === 0) {
-    return badRequest("name は必須です。");
-  }
-  if (name.trim().length > 50) {
-    return badRequest("name は50文字以内で入力してください。");
-  }
-
-  const description = input.description;
-  if (description !== undefined && typeof description !== "string") {
-    return badRequest("description は文字列で入力してください。");
-  }
-
-  const payload: CreateWorkspaceInput = {
-    name: name.trim(),
-    description: typeof description === "string" ? description.trim() : undefined,
-  };
-
-  const workspace = await createWorkspace(supabase, user.id, payload);
-  if (!workspace) return serverError();
-
-  return created(workspace);
 }
