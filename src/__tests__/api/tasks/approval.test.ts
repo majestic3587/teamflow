@@ -3,47 +3,45 @@ import { NextRequest } from "next/server";
 import { POST as submitApproval } from "@/app/api/tasks/[id]/submit-approval/route";
 import { POST as approve } from "@/app/api/tasks/[id]/approve/route";
 import { POST as reject } from "@/app/api/tasks/[id]/reject/route";
+import { AppError } from "@/application/errors";
 import {
-  createMockSupabase,
+  createMockContainer,
   makeRequest,
   makeParams,
   mockTask,
-  mockWorkspaceMembers,
   parseResponse,
-  OWNER_ID,
-  MEMBER_ID,
-  OTHER_ID,
 } from "../../helpers/mock-supabase";
 
-vi.mock("@/utils/supabase/server");
-vi.mock("@/lib/db/tasks");
-vi.mock("@/lib/db/workspaces");
+vi.mock("@/infrastructure/supabase/container");
 
-import { createClient } from "@/utils/supabase/server";
-import { getTaskById, updateTask } from "@/lib/db/tasks";
-import { getWorkspaceMembers } from "@/lib/db/workspaces";
-
-const mockedCreateClient = vi.mocked(createClient);
-const mockedGetTaskById = vi.mocked(getTaskById);
-const mockedUpdateTask = vi.mocked(updateTask);
-const mockedGetWorkspaceMembers = vi.mocked(getWorkspaceMembers);
+import { createContainer } from "@/infrastructure/supabase/container";
+const mockedCreateContainer = vi.mocked(createContainer);
 
 // ─── POST /api/tasks/[id]/submit-approval ──────────────────────
 
 describe("POST /api/tasks/[id]/submit-approval", () => {
-  beforeEach(() => vi.clearAllMocks());
+  let container: ReturnType<typeof createMockContainer>;
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    container = createMockContainer();
+    mockedCreateContainer.mockResolvedValue(container as never);
+  });
 
   it("未認証の場合 401 を返す", async () => {
-    mockedCreateClient.mockResolvedValue(createMockSupabase(null) as never);
-    const req = new NextRequest(makeRequest("POST"));
+    container.taskUsecase.submitApproval.mockRejectedValue(
+      new AppError("UNAUTHORIZED", "認証が必要です。")
+    );
 
+    const req = new NextRequest(makeRequest("POST"));
     const res = await submitApproval(req, makeParams("task-1"));
     expect((await parseResponse(res)).status).toBe(401);
   });
 
   it("タスクが存在しない場合 404 を返す", async () => {
-    mockedCreateClient.mockResolvedValue(createMockSupabase(OWNER_ID) as never);
-    mockedGetTaskById.mockResolvedValue(null);
+    container.taskUsecase.submitApproval.mockRejectedValue(
+      new AppError("NOT_FOUND", "タスクが見つかりません。")
+    );
 
     const req = new NextRequest(makeRequest("POST"));
     const res = await submitApproval(req, makeParams("nonexistent"));
@@ -51,8 +49,12 @@ describe("POST /api/tasks/[id]/submit-approval", () => {
   });
 
   it("DRAFT 以外のタスクに申請すると 400 を返す", async () => {
-    mockedCreateClient.mockResolvedValue(createMockSupabase(OWNER_ID) as never);
-    mockedGetTaskById.mockResolvedValue(mockTask({ approval_status: "PENDING" }));
+    container.taskUsecase.submitApproval.mockRejectedValue(
+      new AppError(
+        "BAD_REQUEST",
+        "承認申請は DRAFT 状態のタスクのみ可能です。"
+      )
+    );
 
     const req = new NextRequest(makeRequest("POST"));
     const res = await submitApproval(req, makeParams("task-1"));
@@ -60,9 +62,9 @@ describe("POST /api/tasks/[id]/submit-approval", () => {
   });
 
   it("作成者が承認申請すると 200 を返す", async () => {
-    mockedCreateClient.mockResolvedValue(createMockSupabase(OWNER_ID) as never);
-    mockedGetTaskById.mockResolvedValue(mockTask({ created_by: OWNER_ID }));
-    mockedUpdateTask.mockResolvedValue(mockTask({ approval_status: "PENDING" }));
+    container.taskUsecase.submitApproval.mockResolvedValue(
+      mockTask({ approval_status: "PENDING" })
+    );
 
     const req = new NextRequest(makeRequest("POST"));
     const res = await submitApproval(req, makeParams("task-1"));
@@ -73,11 +75,9 @@ describe("POST /api/tasks/[id]/submit-approval", () => {
   });
 
   it("担当者が承認申請すると 200 を返す", async () => {
-    mockedCreateClient.mockResolvedValue(createMockSupabase(MEMBER_ID) as never);
-    mockedGetTaskById.mockResolvedValue(
-      mockTask({ created_by: OWNER_ID, assignee_id: MEMBER_ID })
+    container.taskUsecase.submitApproval.mockResolvedValue(
+      mockTask({ approval_status: "PENDING" })
     );
-    mockedUpdateTask.mockResolvedValue(mockTask({ approval_status: "PENDING" }));
 
     const req = new NextRequest(makeRequest("POST"));
     const res = await submitApproval(req, makeParams("task-1"));
@@ -85,12 +85,8 @@ describe("POST /api/tasks/[id]/submit-approval", () => {
   });
 
   it("無関係なユーザーが申請すると 403 を返す", async () => {
-    mockedCreateClient.mockResolvedValue(createMockSupabase(OTHER_ID) as never);
-    mockedGetTaskById.mockResolvedValue(
-      mockTask({ created_by: OWNER_ID, assignee_id: MEMBER_ID })
-    );
-    mockedGetWorkspaceMembers.mockResolvedValue(
-      mockWorkspaceMembers(OTHER_ID, "member") as never
+    container.taskUsecase.submitApproval.mockRejectedValue(
+      new AppError("FORBIDDEN", "承認申請の権限がありません。")
     );
 
     const req = new NextRequest(makeRequest("POST"));
@@ -102,19 +98,31 @@ describe("POST /api/tasks/[id]/submit-approval", () => {
 // ─── POST /api/tasks/[id]/approve ──────────────────────────────
 
 describe("POST /api/tasks/[id]/approve", () => {
-  beforeEach(() => vi.clearAllMocks());
+  let container: ReturnType<typeof createMockContainer>;
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    container = createMockContainer();
+    mockedCreateContainer.mockResolvedValue(container as never);
+  });
 
   it("未認証の場合 401 を返す", async () => {
-    mockedCreateClient.mockResolvedValue(createMockSupabase(null) as never);
-    const req = new NextRequest(makeRequest("POST"));
+    container.taskUsecase.approveTask.mockRejectedValue(
+      new AppError("UNAUTHORIZED", "認証が必要です。")
+    );
 
+    const req = new NextRequest(makeRequest("POST"));
     const res = await approve(req, makeParams("task-1"));
     expect((await parseResponse(res)).status).toBe(401);
   });
 
   it("PENDING 以外のタスクを承認しようとすると 400 を返す", async () => {
-    mockedCreateClient.mockResolvedValue(createMockSupabase(OWNER_ID) as never);
-    mockedGetTaskById.mockResolvedValue(mockTask({ approval_status: "DRAFT" }));
+    container.taskUsecase.approveTask.mockRejectedValue(
+      new AppError(
+        "BAD_REQUEST",
+        "承認は PENDING 状態のタスクのみ可能です。"
+      )
+    );
 
     const req = new NextRequest(makeRequest("POST"));
     const res = await approve(req, makeParams("task-1"));
@@ -122,12 +130,9 @@ describe("POST /api/tasks/[id]/approve", () => {
   });
 
   it("owner が PENDING タスクを承認すると 200 を返す", async () => {
-    mockedCreateClient.mockResolvedValue(createMockSupabase(OWNER_ID) as never);
-    mockedGetTaskById.mockResolvedValue(mockTask({ approval_status: "PENDING" }));
-    mockedGetWorkspaceMembers.mockResolvedValue(
-      mockWorkspaceMembers(OWNER_ID, "owner") as never
+    container.taskUsecase.approveTask.mockResolvedValue(
+      mockTask({ approval_status: "APPROVED" })
     );
-    mockedUpdateTask.mockResolvedValue(mockTask({ approval_status: "APPROVED" }));
 
     const req = new NextRequest(makeRequest("POST"));
     const res = await approve(req, makeParams("task-1"));
@@ -138,12 +143,9 @@ describe("POST /api/tasks/[id]/approve", () => {
   });
 
   it("manager が PENDING タスクを承認すると 200 を返す", async () => {
-    mockedCreateClient.mockResolvedValue(createMockSupabase(MEMBER_ID) as never);
-    mockedGetTaskById.mockResolvedValue(mockTask({ approval_status: "PENDING" }));
-    mockedGetWorkspaceMembers.mockResolvedValue(
-      mockWorkspaceMembers(MEMBER_ID, "manager") as never
+    container.taskUsecase.approveTask.mockResolvedValue(
+      mockTask({ approval_status: "APPROVED" })
     );
-    mockedUpdateTask.mockResolvedValue(mockTask({ approval_status: "APPROVED" }));
 
     const req = new NextRequest(makeRequest("POST"));
     const res = await approve(req, makeParams("task-1"));
@@ -151,10 +153,8 @@ describe("POST /api/tasks/[id]/approve", () => {
   });
 
   it("member ロールのユーザーが承認しようとすると 403 を返す", async () => {
-    mockedCreateClient.mockResolvedValue(createMockSupabase(OTHER_ID) as never);
-    mockedGetTaskById.mockResolvedValue(mockTask({ approval_status: "PENDING" }));
-    mockedGetWorkspaceMembers.mockResolvedValue(
-      mockWorkspaceMembers(OTHER_ID, "member") as never
+    container.taskUsecase.approveTask.mockRejectedValue(
+      new AppError("FORBIDDEN", "承認権限がありません。")
     );
 
     const req = new NextRequest(makeRequest("POST"));
@@ -166,19 +166,31 @@ describe("POST /api/tasks/[id]/approve", () => {
 // ─── POST /api/tasks/[id]/reject ───────────────────────────────
 
 describe("POST /api/tasks/[id]/reject", () => {
-  beforeEach(() => vi.clearAllMocks());
+  let container: ReturnType<typeof createMockContainer>;
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    container = createMockContainer();
+    mockedCreateContainer.mockResolvedValue(container as never);
+  });
 
   it("未認証の場合 401 を返す", async () => {
-    mockedCreateClient.mockResolvedValue(createMockSupabase(null) as never);
-    const req = new NextRequest(makeRequest("POST"));
+    container.taskUsecase.rejectTask.mockRejectedValue(
+      new AppError("UNAUTHORIZED", "認証が必要です。")
+    );
 
+    const req = new NextRequest(makeRequest("POST"));
     const res = await reject(req, makeParams("task-1"));
     expect((await parseResponse(res)).status).toBe(401);
   });
 
   it("PENDING 以外のタスクを差し戻そうとすると 400 を返す", async () => {
-    mockedCreateClient.mockResolvedValue(createMockSupabase(OWNER_ID) as never);
-    mockedGetTaskById.mockResolvedValue(mockTask({ approval_status: "APPROVED" }));
+    container.taskUsecase.rejectTask.mockRejectedValue(
+      new AppError(
+        "BAD_REQUEST",
+        "却下は PENDING 状態のタスクのみ可能です。"
+      )
+    );
 
     const req = new NextRequest(makeRequest("POST"));
     const res = await reject(req, makeParams("task-1"));
@@ -186,12 +198,9 @@ describe("POST /api/tasks/[id]/reject", () => {
   });
 
   it("owner が PENDING タスクを差し戻すと 200 を返す", async () => {
-    mockedCreateClient.mockResolvedValue(createMockSupabase(OWNER_ID) as never);
-    mockedGetTaskById.mockResolvedValue(mockTask({ approval_status: "PENDING" }));
-    mockedGetWorkspaceMembers.mockResolvedValue(
-      mockWorkspaceMembers(OWNER_ID, "owner") as never
+    container.taskUsecase.rejectTask.mockResolvedValue(
+      mockTask({ approval_status: "REJECTED" })
     );
-    mockedUpdateTask.mockResolvedValue(mockTask({ approval_status: "REJECTED" }));
 
     const req = new NextRequest(makeRequest("POST"));
     const res = await reject(req, makeParams("task-1"));
@@ -202,10 +211,8 @@ describe("POST /api/tasks/[id]/reject", () => {
   });
 
   it("member ロールのユーザーが差し戻そうとすると 403 を返す", async () => {
-    mockedCreateClient.mockResolvedValue(createMockSupabase(OTHER_ID) as never);
-    mockedGetTaskById.mockResolvedValue(mockTask({ approval_status: "PENDING" }));
-    mockedGetWorkspaceMembers.mockResolvedValue(
-      mockWorkspaceMembers(OTHER_ID, "member") as never
+    container.taskUsecase.rejectTask.mockRejectedValue(
+      new AppError("FORBIDDEN", "却下権限がありません。")
     );
 
     const req = new NextRequest(makeRequest("POST"));

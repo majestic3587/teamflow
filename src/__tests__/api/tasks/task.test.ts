@@ -1,42 +1,45 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { NextRequest } from "next/server";
 import { GET, PATCH, DELETE } from "@/app/api/tasks/[id]/route";
+import { AppError } from "@/application/errors";
 import {
-  createMockSupabase,
+  createMockContainer,
   makeRequest,
   makeParams,
   mockTask,
   parseResponse,
-  OWNER_ID,
 } from "../../helpers/mock-supabase";
 
-vi.mock("@/utils/supabase/server");
-vi.mock("@/lib/db/tasks");
+vi.mock("@/infrastructure/supabase/container");
 
-import { createClient } from "@/utils/supabase/server";
-import { getTaskById, updateTask, deleteTask } from "@/lib/db/tasks";
-
-const mockedCreateClient = vi.mocked(createClient);
-const mockedGetTaskById = vi.mocked(getTaskById);
-const mockedUpdateTask = vi.mocked(updateTask);
-const mockedDeleteTask = vi.mocked(deleteTask);
+import { createContainer } from "@/infrastructure/supabase/container";
+const mockedCreateContainer = vi.mocked(createContainer);
 
 // ─── GET /api/tasks/[id] ────────────────────────────────────────
 
 describe("GET /api/tasks/[id]", () => {
-  beforeEach(() => vi.clearAllMocks());
+  let container: ReturnType<typeof createMockContainer>;
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    container = createMockContainer();
+    mockedCreateContainer.mockResolvedValue(container as never);
+  });
 
   it("未認証の場合 401 を返す", async () => {
-    mockedCreateClient.mockResolvedValue(createMockSupabase(null) as never);
-    const req = new NextRequest(makeRequest("GET"));
+    container.taskUsecase.getTask.mockRejectedValue(
+      new AppError("UNAUTHORIZED", "認証が必要です。")
+    );
 
+    const req = new NextRequest(makeRequest("GET"));
     const res = await GET(req, makeParams("task-1"));
     expect((await parseResponse(res)).status).toBe(401);
   });
 
   it("タスクが存在しない場合 404 を返す", async () => {
-    mockedCreateClient.mockResolvedValue(createMockSupabase(OWNER_ID) as never);
-    mockedGetTaskById.mockResolvedValue(null);
+    container.taskUsecase.getTask.mockRejectedValue(
+      new AppError("NOT_FOUND", "タスクが見つかりません。")
+    );
 
     const req = new NextRequest(makeRequest("GET"));
     const res = await GET(req, makeParams("nonexistent"));
@@ -44,9 +47,8 @@ describe("GET /api/tasks/[id]", () => {
   });
 
   it("タスクを 200 で返す", async () => {
-    mockedCreateClient.mockResolvedValue(createMockSupabase(OWNER_ID) as never);
     const task = mockTask();
-    mockedGetTaskById.mockResolvedValue(task);
+    container.taskUsecase.getTask.mockResolvedValue(task);
 
     const req = new NextRequest(makeRequest("GET"));
     const res = await GET(req, makeParams("task-1"));
@@ -61,19 +63,28 @@ describe("GET /api/tasks/[id]", () => {
 // ─── PATCH /api/tasks/[id] ──────────────────────────────────────
 
 describe("PATCH /api/tasks/[id]", () => {
-  beforeEach(() => vi.clearAllMocks());
+  let container: ReturnType<typeof createMockContainer>;
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    container = createMockContainer();
+    mockedCreateContainer.mockResolvedValue(container as never);
+  });
 
   it("未認証の場合 401 を返す", async () => {
-    mockedCreateClient.mockResolvedValue(createMockSupabase(null) as never);
-    const req = new NextRequest(makeRequest("PATCH", { title: "更新" }));
+    container.taskUsecase.updateTask.mockRejectedValue(
+      new AppError("UNAUTHORIZED", "認証が必要です。")
+    );
 
+    const req = new NextRequest(makeRequest("PATCH", { title: "更新" }));
     const res = await PATCH(req, makeParams("task-1"));
     expect((await parseResponse(res)).status).toBe(401);
   });
 
   it("タスクが存在しない場合 404 を返す", async () => {
-    mockedCreateClient.mockResolvedValue(createMockSupabase(OWNER_ID) as never);
-    mockedGetTaskById.mockResolvedValue(null);
+    container.taskUsecase.updateTask.mockRejectedValue(
+      new AppError("NOT_FOUND", "タスクが見つかりません。")
+    );
 
     const req = new NextRequest(makeRequest("PATCH", { title: "更新" }));
     const res = await PATCH(req, makeParams("nonexistent"));
@@ -81,13 +92,12 @@ describe("PATCH /api/tasks/[id]", () => {
   });
 
   it("title を正常に更新できる", async () => {
-    mockedCreateClient.mockResolvedValue(createMockSupabase(OWNER_ID) as never);
-    const task = mockTask();
-    mockedGetTaskById.mockResolvedValue(task);
     const updated = mockTask({ title: "更新後タイトル" });
-    mockedUpdateTask.mockResolvedValue(updated);
+    container.taskUsecase.updateTask.mockResolvedValue(updated);
 
-    const req = new NextRequest(makeRequest("PATCH", { title: "更新後タイトル" }));
+    const req = new NextRequest(
+      makeRequest("PATCH", { title: "更新後タイトル" })
+    );
     const res = await PATCH(req, makeParams("task-1"));
     const { status, body } = await parseResponse(res);
 
@@ -96,8 +106,12 @@ describe("PATCH /api/tasks/[id]", () => {
   });
 
   it("title が空文字の場合 400 を返す", async () => {
-    mockedCreateClient.mockResolvedValue(createMockSupabase(OWNER_ID) as never);
-    mockedGetTaskById.mockResolvedValue(mockTask());
+    container.taskUsecase.updateTask.mockRejectedValue(
+      new AppError(
+        "BAD_REQUEST",
+        "title は1文字以上の文字列で指定してください。"
+      )
+    );
 
     const req = new NextRequest(makeRequest("PATCH", { title: "" }));
     const res = await PATCH(req, makeParams("task-1"));
@@ -105,42 +119,57 @@ describe("PATCH /api/tasks/[id]", () => {
   });
 
   it("title が 200 文字超の場合 400 を返す", async () => {
-    mockedCreateClient.mockResolvedValue(createMockSupabase(OWNER_ID) as never);
-    mockedGetTaskById.mockResolvedValue(mockTask());
+    container.taskUsecase.updateTask.mockRejectedValue(
+      new AppError(
+        "BAD_REQUEST",
+        "title は200文字以内で指定してください。"
+      )
+    );
 
-    const req = new NextRequest(makeRequest("PATCH", { title: "あ".repeat(201) }));
+    const req = new NextRequest(
+      makeRequest("PATCH", { title: "あ".repeat(201) })
+    );
     const res = await PATCH(req, makeParams("task-1"));
     expect((await parseResponse(res)).status).toBe(400);
   });
 
   it("不正な approval_status の場合 400 を返す", async () => {
-    mockedCreateClient.mockResolvedValue(createMockSupabase(OWNER_ID) as never);
-    mockedGetTaskById.mockResolvedValue(mockTask());
+    container.taskUsecase.updateTask.mockRejectedValue(
+      new AppError("BAD_REQUEST", "approval_status の値が不正です。")
+    );
 
-    const req = new NextRequest(makeRequest("PATCH", { approval_status: "INVALID" }));
+    const req = new NextRequest(
+      makeRequest("PATCH", { approval_status: "INVALID" })
+    );
     const res = await PATCH(req, makeParams("task-1"));
     expect((await parseResponse(res)).status).toBe(400);
   });
 
   it("APPROVED でないタスクを IN_PROGRESS にしようとすると 400 を返す", async () => {
-    mockedCreateClient.mockResolvedValue(createMockSupabase(OWNER_ID) as never);
-    mockedGetTaskById.mockResolvedValue(mockTask({ approval_status: "DRAFT" }));
+    container.taskUsecase.updateTask.mockRejectedValue(
+      new AppError(
+        "BAD_REQUEST",
+        "承認済み (APPROVED) でないタスクを着手済み・完了にすることはできません。"
+      )
+    );
 
-    const req = new NextRequest(makeRequest("PATCH", { work_status: "IN_PROGRESS" }));
+    const req = new NextRequest(
+      makeRequest("PATCH", { work_status: "IN_PROGRESS" })
+    );
     const res = await PATCH(req, makeParams("task-1"));
     expect((await parseResponse(res)).status).toBe(400);
   });
 
   it("APPROVED タスクを IN_PROGRESS に変更できる", async () => {
-    mockedCreateClient.mockResolvedValue(createMockSupabase(OWNER_ID) as never);
-    mockedGetTaskById.mockResolvedValue(
-      mockTask({ approval_status: "APPROVED" })
-    );
-    mockedUpdateTask.mockResolvedValue(
-      mockTask({ approval_status: "APPROVED", work_status: "IN_PROGRESS" })
-    );
+    const updated = mockTask({
+      approval_status: "APPROVED",
+      work_status: "IN_PROGRESS",
+    });
+    container.taskUsecase.updateTask.mockResolvedValue(updated);
 
-    const req = new NextRequest(makeRequest("PATCH", { work_status: "IN_PROGRESS" }));
+    const req = new NextRequest(
+      makeRequest("PATCH", { work_status: "IN_PROGRESS" })
+    );
     const res = await PATCH(req, makeParams("task-1"));
     const { status, body } = await parseResponse(res);
 
@@ -149,8 +178,9 @@ describe("PATCH /api/tasks/[id]", () => {
   });
 
   it("更新フィールドが空の場合 400 を返す", async () => {
-    mockedCreateClient.mockResolvedValue(createMockSupabase(OWNER_ID) as never);
-    mockedGetTaskById.mockResolvedValue(mockTask());
+    container.taskUsecase.updateTask.mockRejectedValue(
+      new AppError("BAD_REQUEST", "更新するフィールドを指定してください。")
+    );
 
     const req = new NextRequest(makeRequest("PATCH", {}));
     const res = await PATCH(req, makeParams("task-1"));
@@ -161,19 +191,28 @@ describe("PATCH /api/tasks/[id]", () => {
 // ─── DELETE /api/tasks/[id] ─────────────────────────────────────
 
 describe("DELETE /api/tasks/[id]", () => {
-  beforeEach(() => vi.clearAllMocks());
+  let container: ReturnType<typeof createMockContainer>;
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    container = createMockContainer();
+    mockedCreateContainer.mockResolvedValue(container as never);
+  });
 
   it("未認証の場合 401 を返す", async () => {
-    mockedCreateClient.mockResolvedValue(createMockSupabase(null) as never);
-    const req = new NextRequest(makeRequest("DELETE"));
+    container.taskUsecase.deleteTask.mockRejectedValue(
+      new AppError("UNAUTHORIZED", "認証が必要です。")
+    );
 
+    const req = new NextRequest(makeRequest("DELETE"));
     const res = await DELETE(req, makeParams("task-1"));
     expect((await parseResponse(res)).status).toBe(401);
   });
 
   it("タスクが存在しない場合 404 を返す", async () => {
-    mockedCreateClient.mockResolvedValue(createMockSupabase(OWNER_ID) as never);
-    mockedGetTaskById.mockResolvedValue(null);
+    container.taskUsecase.deleteTask.mockRejectedValue(
+      new AppError("NOT_FOUND", "タスクが見つかりません。")
+    );
 
     const req = new NextRequest(makeRequest("DELETE"));
     const res = await DELETE(req, makeParams("nonexistent"));
@@ -181,22 +220,17 @@ describe("DELETE /api/tasks/[id]", () => {
   });
 
   it("正常に削除できた場合 200 を返す", async () => {
-    mockedCreateClient.mockResolvedValue(createMockSupabase(OWNER_ID) as never);
-    mockedGetTaskById.mockResolvedValue(mockTask());
-    mockedDeleteTask.mockResolvedValue(true);
+    container.taskUsecase.deleteTask.mockResolvedValue(undefined);
 
     const req = new NextRequest(makeRequest("DELETE"));
     const res = await DELETE(req, makeParams("task-1"));
-    const { status, body } = await parseResponse(res);
-
-    expect(status).toBe(200);
-    expect(body.data.id).toBe("task-1");
+    expect((await parseResponse(res)).status).toBe(200);
   });
 
   it("削除に失敗した場合 500 を返す", async () => {
-    mockedCreateClient.mockResolvedValue(createMockSupabase(OWNER_ID) as never);
-    mockedGetTaskById.mockResolvedValue(mockTask());
-    mockedDeleteTask.mockResolvedValue(false);
+    container.taskUsecase.deleteTask.mockRejectedValue(
+      new AppError("INTERNAL", "サーバーエラーが発生しました。")
+    );
 
     const req = new NextRequest(makeRequest("DELETE"));
     const res = await DELETE(req, makeParams("task-1"));

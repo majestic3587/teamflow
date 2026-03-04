@@ -1,29 +1,16 @@
 import { NextRequest } from "next/server";
-import { createClient } from "@/utils/supabase/server";
-import { getWorkspaceMembers } from "@/lib/db/workspaces";
-import { ok, unauthorized, forbidden } from "@/lib/api-response";
+import { createContainer } from "@/infrastructure/supabase/container";
+import { ok, handleError } from "@/lib/api-handler";
 
 type Params = { params: Promise<{ id: string }> };
 
-// ─────────────────────────────────────────
-// GET /api/workspaces/[id]/members
-// ワークスペースのメンバー一覧を取得（所属必須）
-// ─────────────────────────────────────────
 export async function GET(_request: NextRequest, { params }: Params) {
-  const supabase = await createClient();
-  const { id } = await params;
-
-  const {
-    data: { user },
-    error: authError,
-  } = await supabase.auth.getUser();
-  if (authError || !user) return unauthorized();
-
-  const members = await getWorkspaceMembers(supabase, id);
-
-  if (members.length === 0) {
-    return forbidden();
+  try {
+    const { id } = await params;
+    const { workspaceUsecase } = await createContainer();
+    const result = await workspaceUsecase.getMembers(id);
+    return ok(result);
+  } catch (e) {
+    return handleError(e);
   }
-
-  return ok(members);
 }

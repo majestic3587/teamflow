@@ -1,49 +1,41 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { NextRequest } from "next/server";
 import { GET, POST } from "@/app/api/workspaces/route";
+import { AppError } from "@/application/errors";
 import {
-  createMockSupabase,
+  createMockContainer,
   makeRequest,
+  mockWorkspace,
   parseResponse,
-  OWNER_ID,
 } from "../helpers/mock-supabase";
 
-vi.mock("@/utils/supabase/server");
-vi.mock("@/lib/db/workspaces");
+vi.mock("@/infrastructure/supabase/container");
 
-import { createClient } from "@/utils/supabase/server";
-import { getWorkspacesByUserId, createWorkspace } from "@/lib/db/workspaces";
-
-const mockedCreateClient = vi.mocked(createClient);
-const mockedGetWorkspacesByUserId = vi.mocked(getWorkspacesByUserId);
-const mockedCreateWorkspace = vi.mocked(createWorkspace);
-
-const mockWorkspace = {
-  id: "ws-1",
-  name: "テストワークスペース",
-  description: "説明文",
-  owner_id: OWNER_ID,
-  created_at: "2024-01-01T00:00:00Z",
-  updated_at: "2024-01-01T00:00:00Z",
-};
+import { createContainer } from "@/infrastructure/supabase/container";
+const mockedCreateContainer = vi.mocked(createContainer);
 
 // ─── GET /api/workspaces ────────────────────────────────────────
 
 describe("GET /api/workspaces", () => {
-  beforeEach(() => vi.clearAllMocks());
+  let container: ReturnType<typeof createMockContainer>;
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    container = createMockContainer();
+    mockedCreateContainer.mockResolvedValue(container as never);
+  });
 
   it("未認証の場合 401 を返す", async () => {
-    mockedCreateClient.mockResolvedValue(createMockSupabase(null) as never);
+    container.workspaceUsecase.getWorkspaces.mockRejectedValue(
+      new AppError("UNAUTHORIZED", "認証が必要です。")
+    );
 
     const res = await GET();
-    const { status } = await parseResponse(res);
-
-    expect(status).toBe(401);
+    expect((await parseResponse(res)).status).toBe(401);
   });
 
   it("ワークスペース一覧を 200 で返す", async () => {
-    mockedCreateClient.mockResolvedValue(createMockSupabase(OWNER_ID) as never);
-    mockedGetWorkspacesByUserId.mockResolvedValue([mockWorkspace]);
+    container.workspaceUsecase.getWorkspaces.mockResolvedValue([mockWorkspace]);
 
     const res = await GET();
     const { status, body } = await parseResponse(res);
@@ -54,8 +46,7 @@ describe("GET /api/workspaces", () => {
   });
 
   it("ワークスペースが 0 件でも 200 を返す", async () => {
-    mockedCreateClient.mockResolvedValue(createMockSupabase(OWNER_ID) as never);
-    mockedGetWorkspacesByUserId.mockResolvedValue([]);
+    container.workspaceUsecase.getWorkspaces.mockResolvedValue([]);
 
     const res = await GET();
     const { status, body } = await parseResponse(res);
@@ -68,21 +59,26 @@ describe("GET /api/workspaces", () => {
 // ─── POST /api/workspaces ───────────────────────────────────────
 
 describe("POST /api/workspaces", () => {
-  beforeEach(() => vi.clearAllMocks());
+  let container: ReturnType<typeof createMockContainer>;
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    container = createMockContainer();
+    mockedCreateContainer.mockResolvedValue(container as never);
+  });
 
   it("未認証の場合 401 を返す", async () => {
-    mockedCreateClient.mockResolvedValue(createMockSupabase(null) as never);
+    container.workspaceUsecase.createWorkspace.mockRejectedValue(
+      new AppError("UNAUTHORIZED", "認証が必要です。")
+    );
+
     const req = new NextRequest(makeRequest("POST", { name: "新WS" }));
-
     const res = await POST(req);
-    const { status } = await parseResponse(res);
-
-    expect(status).toBe(401);
+    expect((await parseResponse(res)).status).toBe(401);
   });
 
   it("正常なリクエストで 201 を返す", async () => {
-    mockedCreateClient.mockResolvedValue(createMockSupabase(OWNER_ID) as never);
-    mockedCreateWorkspace.mockResolvedValue(mockWorkspace);
+    container.workspaceUsecase.createWorkspace.mockResolvedValue(mockWorkspace);
 
     const req = new NextRequest(
       makeRequest("POST", { name: "新WS", description: "説明" })
@@ -95,43 +91,46 @@ describe("POST /api/workspaces", () => {
   });
 
   it("name が空の場合 400 を返す", async () => {
-    mockedCreateClient.mockResolvedValue(createMockSupabase(OWNER_ID) as never);
+    container.workspaceUsecase.createWorkspace.mockRejectedValue(
+      new AppError("BAD_REQUEST", "name は必須です。")
+    );
+
     const req = new NextRequest(makeRequest("POST", { name: "" }));
-
     const res = await POST(req);
-    const { status } = await parseResponse(res);
-
-    expect(status).toBe(400);
+    expect((await parseResponse(res)).status).toBe(400);
   });
 
   it("name が 50 文字超の場合 400 を返す", async () => {
-    mockedCreateClient.mockResolvedValue(createMockSupabase(OWNER_ID) as never);
-    const req = new NextRequest(makeRequest("POST", { name: "あ".repeat(51) }));
+    container.workspaceUsecase.createWorkspace.mockRejectedValue(
+      new AppError("BAD_REQUEST", "name は50文字以内で指定してください。")
+    );
 
+    const req = new NextRequest(
+      makeRequest("POST", { name: "あ".repeat(51) })
+    );
     const res = await POST(req);
-    const { status } = await parseResponse(res);
-
-    expect(status).toBe(400);
+    expect((await parseResponse(res)).status).toBe(400);
   });
 
   it("description が数値の場合 400 を返す", async () => {
-    mockedCreateClient.mockResolvedValue(createMockSupabase(OWNER_ID) as never);
-    const req = new NextRequest(makeRequest("POST", { name: "WS", description: 123 }));
+    container.workspaceUsecase.createWorkspace.mockRejectedValue(
+      new AppError("BAD_REQUEST", "description は文字列で指定してください。")
+    );
 
+    const req = new NextRequest(
+      makeRequest("POST", { name: "WS", description: 123 })
+    );
     const res = await POST(req);
-    const { status } = await parseResponse(res);
-
-    expect(status).toBe(400);
+    expect((await parseResponse(res)).status).toBe(400);
   });
 
-  it("createWorkspace が null の場合 500 を返す", async () => {
-    mockedCreateClient.mockResolvedValue(createMockSupabase(OWNER_ID) as never);
-    mockedCreateWorkspace.mockResolvedValue(null);
+  it("createWorkspace が失敗した場合 500 を返す", async () => {
+    container.workspaceUsecase.createWorkspace.mockRejectedValue(
+      new AppError("INTERNAL", "サーバーエラーが発生しました。")
+    );
 
     const req = new NextRequest(makeRequest("POST", { name: "失敗WS" }));
     const res = await POST(req);
-    const { status } = await parseResponse(res);
-
-    expect(status).toBe(500);
+    expect((await parseResponse(res)).status).toBe(500);
   });
 });
