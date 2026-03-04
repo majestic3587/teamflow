@@ -1,8 +1,9 @@
-import { MOCK_APPROVAL_QUEUE } from "@/lib/mock/dashboard";
+import Link from "next/link";
+import type { ApprovalQueueItem } from "@/lib/db/dashboard";
 
-export function ApprovalQueue() {
-  const tasks = MOCK_APPROVAL_QUEUE;
+type Props = { tasks: ApprovalQueueItem[] };
 
+export function ApprovalQueue({ tasks }: Props) {
   if (tasks.length === 0) {
     return (
       <div className="bg-white rounded-2xl border border-gray-100">
@@ -31,31 +32,37 @@ export function ApprovalQueue() {
       </div>
 
       <ul className="divide-y divide-gray-50">
-        {tasks.map((task) => (
-          <li key={task.id} className="px-6 py-4">
-            <div className="flex items-start justify-between gap-4">
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium text-gray-900 truncate">{task.title}</p>
-                <div className="flex items-center gap-2 mt-1">
-                  <span className="text-xs text-gray-400">{task.project}</span>
-                  <span className="text-gray-200">·</span>
-                  <span className="text-xs text-gray-400">申請者: {task.requester}</span>
-                </div>
-                <p className="text-xs text-gray-400 mt-0.5">期限: {task.dueDate}</p>
-              </div>
+        {tasks.map((task) => {
+          const isOverdue =
+            task.due_date && new Date(task.due_date) < new Date();
 
-              {/* Action buttons */}
-              <div className="flex-shrink-0 flex items-center gap-2">
-                <button className="text-xs bg-indigo-600 text-white px-3 py-1.5 rounded-lg hover:bg-indigo-700 transition-colors font-medium">
-                  承認
-                </button>
-                <button className="text-xs border border-gray-200 text-gray-600 px-3 py-1.5 rounded-lg hover:bg-gray-50 transition-colors font-medium">
-                  差し戻し
-                </button>
+          return (
+            <li key={task.id} className="px-6 py-4">
+              <div className="flex items-start justify-between gap-4">
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium text-gray-900 truncate">{task.title}</p>
+                  <div className="flex items-center gap-2 mt-1">
+                    <span className="text-xs text-gray-400 truncate">{task.project_name}</span>
+                    <span className="text-gray-200">·</span>
+                    <span className="text-xs text-gray-400">申請者: {task.requester_name}</span>
+                  </div>
+                  {task.due_date && (
+                    <p className={`text-xs mt-0.5 ${isOverdue ? "text-red-500 font-medium" : "text-gray-400"}`}>
+                      期限: {new Date(task.due_date).toLocaleDateString("ja-JP")}
+                    </p>
+                  )}
+                </div>
+
+                <Link
+                  href={`/dashboard/tasks/${task.id}`}
+                  className="flex-shrink-0 text-xs bg-indigo-600 text-white px-3 py-1.5 rounded-lg hover:bg-indigo-700 transition-colors font-medium"
+                >
+                  確認する
+                </Link>
               </div>
-            </div>
-          </li>
-        ))}
+            </li>
+          );
+        })}
       </ul>
     </div>
   );

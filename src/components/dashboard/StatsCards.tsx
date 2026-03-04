@@ -1,14 +1,13 @@
-import { MOCK_STATS } from "@/lib/mock/dashboard";
+import type { ReactNode } from "react";
+import type { DashboardStats } from "@/lib/db/dashboard";
 
 type StatCard = {
   label: string;
   value: number;
-  icon: React.ReactNode;
+  icon: ReactNode;
   color: string;
   bgColor: string;
 };
-
-import { ReactNode } from "react";
 
 function Card({ label, value, icon, color, bgColor }: StatCard) {
   return (
@@ -24,9 +23,9 @@ function Card({ label, value, icon, color, bgColor }: StatCard) {
   );
 }
 
-export function StatsCards() {
-  const stats = MOCK_STATS;
+type Props = { stats: DashboardStats };
 
+export function StatsCards({ stats }: Props) {
   const cards: StatCard[] = [
     {
       label: "タスク総数",
