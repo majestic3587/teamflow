@@ -4,6 +4,7 @@ import type { Task, TaskApprovalStatus, TaskWorkStatus } from "@/types/task";
 type Props = {
   task: Task;
   assigneeName?: string | null;
+  projectName?: string | null;
 };
 
 const WORK_STATUS_LABELS: Record<TaskWorkStatus, string> = {
@@ -32,7 +33,7 @@ const APPROVAL_STATUS_STYLES: Record<TaskApprovalStatus, string> = {
   REJECTED: "bg-red-100 text-red-600",
 };
 
-export function TaskCard({ task, assigneeName }: Props) {
+export function TaskCard({ task, assigneeName, projectName }: Props) {
   const isOverdue =
     task.due_date &&
     task.work_status !== "DONE" &&
@@ -59,6 +60,11 @@ export function TaskCard({ task, assigneeName }: Props) {
         <h3 className="text-sm font-semibold text-gray-900 line-clamp-2">
           {task.title}
         </h3>
+
+        {/* プロジェクト名（提供された場合のみ表示） */}
+        {projectName && (
+          <p className="text-xs text-gray-400 mt-1 truncate">{projectName}</p>
+        )}
 
         {/* 担当者 / 期日 */}
         <div className="mt-3 flex items-center justify-between text-xs text-gray-400">
