@@ -28,14 +28,22 @@ export function ProjectCard({ project, canManage }: Props) {
           </div>
         </div>
 
-        {canManage && (
+        <div className="flex items-center gap-2 flex-shrink-0">
           <Link
-            href={`/dashboard/projects/${project.id}/edit`}
-            className="flex-shrink-0 text-xs text-gray-400 hover:text-indigo-600 border border-gray-200 hover:border-indigo-300 px-3 py-1.5 rounded-lg transition-colors"
+            href={`/dashboard/projects/${project.id}/tasks`}
+            className="text-xs text-indigo-600 hover:text-indigo-700 border border-indigo-200 hover:border-indigo-400 bg-indigo-50 hover:bg-indigo-100 px-3 py-1.5 rounded-lg transition-colors font-medium"
           >
-            編集
+            タスク
           </Link>
-        )}
+          {canManage && (
+            <Link
+              href={`/dashboard/projects/${project.id}/edit`}
+              className="text-xs text-gray-400 hover:text-indigo-600 border border-gray-200 hover:border-indigo-300 px-3 py-1.5 rounded-lg transition-colors"
+            >
+              編集
+            </Link>
+          )}
+        </div>
       </div>
 
       <p className="text-xs text-gray-400 mt-4">
