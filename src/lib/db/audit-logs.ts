@@ -8,10 +8,12 @@ import { AuditLogWithActor } from "@/types/audit-log";
  */
 export async function getAuditLogsByWorkspaceId(
   supabase: SupabaseClient,
-  workspaceId: string
+  workspaceId: string,
+  limit = 100
 ): Promise<AuditLogWithActor[]> {
   const { data, error } = await supabase.rpc("get_audit_logs", {
     p_workspace_id: workspaceId,
+    p_limit: limit,
   });
 
   if (error || !data) {

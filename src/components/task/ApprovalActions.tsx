@@ -44,8 +44,9 @@ export function ApprovalActions({
   const showSubmit = canSubmit && approvalStatus === "DRAFT";
   const showApprove = canApprove && approvalStatus === "PENDING";
   const showReject = canApprove && approvalStatus === "PENDING";
+  const showRejectedGuide = canSubmit && approvalStatus === "REJECTED";
 
-  if (!showSubmit && !showApprove && !showReject) return null;
+  if (!showSubmit && !showApprove && !showReject && !showRejectedGuide) return null;
 
   return (
     <div className="mt-6 pt-6 border-t border-gray-100">
@@ -104,7 +105,7 @@ export function ApprovalActions({
       </div>
 
       {/* 状態ガイド */}
-      {approvalStatus === "REJECTED" && canSubmit && (
+      {showRejectedGuide && (
         <p className="text-xs text-amber-600 mt-2">
           差し戻されました。内容を修正して再度承認申請してください。
           （編集後、ステータスは自動で DRAFT に戻りません。編集画面から DRAFT に変更してください）
