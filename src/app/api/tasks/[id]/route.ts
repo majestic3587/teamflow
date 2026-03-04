@@ -124,7 +124,17 @@ export async function PATCH(request: NextRequest, { params }: Params) {
         `work_status は ${WORK_STATUSES.join(", ")} のいずれかで入力してください。`
       );
     }
-    patch.work_status = status as TaskWorkStatus;
+    // Approved 以外は作業開始・完了不可
+    const nextWorkStatus = status as TaskWorkStatus;
+    if (
+      (nextWorkStatus === "IN_PROGRESS" || nextWorkStatus === "DONE") &&
+      existing.approval_status !== "APPROVED"
+    ) {
+      return badRequest(
+        "作業を開始・完了するには、タスクが承認済み（APPROVED）である必要があります。"
+      );
+    }
+    patch.work_status = nextWorkStatus;
   }
 
   if (Object.keys(patch).length === 0) {

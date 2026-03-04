@@ -10,21 +10,7 @@ import {
   badRequest,
   serverError,
 } from "@/lib/api-response";
-import type { TaskApprovalStatus, TaskWorkStatus } from "@/types/task";
-
 type Params = { params: Promise<{ id: string }> };
-
-const APPROVAL_STATUSES: TaskApprovalStatus[] = [
-  "DRAFT",
-  "PENDING",
-  "APPROVED",
-  "REJECTED",
-];
-const WORK_STATUSES: TaskWorkStatus[] = [
-  "NOT_STARTED",
-  "IN_PROGRESS",
-  "DONE",
-];
 
 // ─────────────────────────────────────────
 // GET /api/projects/[id]/tasks
@@ -104,23 +90,18 @@ export async function POST(request: NextRequest, { params }: Params) {
     return badRequest("definition_of_done は文字列または null で入力してください。");
   }
 
+  // 新規作成時は approval_status=DRAFT / work_status=NOT_STARTED に固定
   const approvalStatus = input.approval_status;
-  if (
-    approvalStatus !== undefined &&
-    !APPROVAL_STATUSES.includes(approvalStatus as TaskApprovalStatus)
-  ) {
+  if (approvalStatus !== undefined && approvalStatus !== "DRAFT") {
     return badRequest(
-      `approval_status は ${APPROVAL_STATUSES.join(", ")} のいずれかで入力してください。`
+      "新規タスクの承認ステータスは DRAFT（下書き）のみ設定できます。"
     );
   }
 
   const workStatus = input.work_status;
-  if (
-    workStatus !== undefined &&
-    !WORK_STATUSES.includes(workStatus as TaskWorkStatus)
-  ) {
+  if (workStatus !== undefined && workStatus !== "NOT_STARTED") {
     return badRequest(
-      `work_status は ${WORK_STATUSES.join(", ")} のいずれかで入力してください。`
+      "新規タスクの進捗ステータスは NOT_STARTED（未着手）のみ設定できます。"
     );
   }
 
@@ -129,8 +110,8 @@ export async function POST(request: NextRequest, { params }: Params) {
     assignee_id: typeof assigneeId === "string" ? assigneeId : null,
     due_date: typeof dueDate === "string" ? dueDate : null,
     definition_of_done: typeof dod === "string" ? dod.trim() || null : null,
-    approval_status: approvalStatus as TaskApprovalStatus | undefined,
-    work_status: workStatus as TaskWorkStatus | undefined,
+    approval_status: "DRAFT",
+    work_status: "NOT_STARTED",
   });
   if (!task) return serverError();
 

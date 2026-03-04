@@ -5,6 +5,8 @@ import { getTaskById } from "@/lib/db/tasks";
 import { getProjectById } from "@/lib/db/projects";
 import { getWorkspaceMembers } from "@/lib/db/workspaces";
 import { DashboardHeader } from "@/components/dashboard/DashboardHeader";
+import { ApprovalActions } from "@/components/task/ApprovalActions";
+import { WorkStatusActions } from "@/components/task/WorkStatusActions";
 import type { TaskApprovalStatus, TaskWorkStatus } from "@/types/task";
 
 export const metadata = {
@@ -55,12 +57,16 @@ export default async function TaskDetailPage({ params }: Props) {
   const displayNameMap = new Map<string, string>();
   members.forEach((m) => displayNameMap.set(m.user_id, m.display_name));
 
-  // 編集権限: 作成者 または manager/owner
+  // 権限計算
   const currentMember = members.find((m) => m.user_id === user.id);
-  const canEdit =
-    task.created_by === user.id ||
-    currentMember?.role === "owner" ||
-    currentMember?.role === "manager";
+  const isManagerOrOwner =
+    currentMember?.role === "owner" || currentMember?.role === "manager";
+  const canEdit = task.created_by === user.id || isManagerOrOwner;
+  // 承認申請: 作成者 または 担当者
+  const canSubmitApproval =
+    task.created_by === user.id || task.assignee_id === user.id || isManagerOrOwner;
+  // 承認・差し戻し: manager または owner のみ
+  const canApprove = isManagerOrOwner;
 
   const isOverdue =
     task.due_date &&
@@ -195,6 +201,20 @@ export default async function TaskDetailPage({ params }: Props) {
               </div>
             )}
           </dl>
+
+          <WorkStatusActions
+            taskId={taskId}
+            workStatus={task.work_status}
+            approvalStatus={task.approval_status}
+            canUpdate={canSubmitApproval}
+          />
+
+          <ApprovalActions
+            taskId={taskId}
+            approvalStatus={task.approval_status}
+            canSubmit={canSubmitApproval}
+            canApprove={canApprove}
+          />
         </div>
       </main>
     </div>
