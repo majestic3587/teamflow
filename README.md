@@ -95,6 +95,7 @@ approval_status ≠ Approved の場合：
 ## 3.1 認証・ユーザー
 
 ### 機能
+<img width="1707" height="943" alt="スクリーンショット 2026-03-05 9 07 26" src="https://github.com/user-attachments/assets/280fc32f-5a01-456c-ae0f-ebc70c347a90" />
 
 - Supabase Authによるログイン/ログアウト/新規登録
 - プロフィール(最低限：表示名)
