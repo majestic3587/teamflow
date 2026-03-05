@@ -96,21 +96,25 @@ approval_status ≠ Approved の場合：
 
 ### 機能
 <img width="1707" height="943" alt="スクリーンショット 2026-03-05 9 07 26" src="https://github.com/user-attachments/assets/280fc32f-5a01-456c-ae0f-ebc70c347a90" />
+<img width="1709" height="938" alt="スクリーンショット 2026-03-05 9 09 27" src="https://github.com/user-attachments/assets/c76399ac-bc05-43bb-9670-3fea5a672a97" />
 
 - Supabase Authによるログイン/ログアウト/新規登録
 - プロフィール(最低限：表示名)
 
 ### 管理項目
+<img width="1710" height="935" alt="スクリーンショット 2026-03-05 9 25 31" src="https://github.com/user-attachments/assets/9274a287-19eb-46a5-8993-4014ad1efa32" />
 
 - display_name
 
 ## 3.2 Workspace(組織)
+<img width="1710" height="932" alt="スクリーンショット 2026-03-05 9 26 17" src="https://github.com/user-attachments/assets/3490ec3e-45d7-4b5f-b51d-35ae8d8b1a4b" />
 
 - Workspace作成
 - Workspace管理者設定
 - ユーザーRole管理
 
 ## 3.3 権限管理(RBAC)
+<img width="1710" height="931" alt="スクリーンショット 2026-03-05 9 27 23" src="https://github.com/user-attachments/assets/64b33ee1-d964-4779-a339-b1b7569567a0" />
 
 ### Role設定
 
@@ -127,6 +131,7 @@ approval_status ≠ Approved の場合：
 | **期限変更** | ✅️ | ✅️ | ❌️ |
 
 ## 3.3 Project管理
+<img width="1710" height="931" alt="スクリーンショット 2026-03-05 9 27 55" src="https://github.com/user-attachments/assets/4d7a5411-f05b-4870-a7b1-09a79ed25dfd" />
 
 - Project作成
 - Project一覧表示
@@ -134,6 +139,8 @@ approval_status ≠ Approved の場合：
 - Project削除
 
 ## 3.4 Task管理
+<img width="1710" height="901" alt="スクリーンショット 2026-03-05 9 28 48" src="https://github.com/user-attachments/assets/416d30f8-13ad-4e11-a54c-c2328c5e9be4" />
+
 
 - タイトル(title)
 - 担当者(assignee)
@@ -158,6 +165,7 @@ approval_status ≠ Approved の場合：
 承認済みのみ進捗更新可
 
 ## 3.5 承認フロー
+<img width="1710" height="944" alt="スクリーンショット 2026-03-05 9 30 20" src="https://github.com/user-attachments/assets/482c9794-2513-4cbe-b703-60e10e0414bc" />
 
 ### フロー
 
@@ -170,6 +178,7 @@ Task作成→承認申請→Manager承認→作業開始可能
 - 差し戻し(理由必須)
 
 ## 3.6 コメント機能
+<img width="3420" height="2782" alt="screencapture-teamflow-self-eight-vercel-app-dashboard-tasks-ee1431a7-8569-41d2-a8a5-ee1c16cdc3d7-comments-2026-03-05-09_31_07" src="https://github.com/user-attachments/assets/3f24f544-53db-48e1-869d-0967b70d0231" />
 
 ### 機能
 
@@ -187,6 +196,7 @@ Task作成→承認申請→Manager承認→作業開始可能
 理由：
 
 ## 3.7 監査ログ
+<img width="1709" height="934" alt="スクリーンショット 2026-03-05 9 39 32" src="https://github.com/user-attachments/assets/74231a13-76aa-48d3-968b-b3c54c6b6fa1" />
 
 - 主要イベントを記録し、追跡可能にする
     - TASK_CREATED
